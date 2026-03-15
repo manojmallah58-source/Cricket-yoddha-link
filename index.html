@@ -3,15 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Fixed</title>
+    <title>Cricket Yoddha - UI Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
         body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; }
-        /* Buffer circle ko force hide karne ke liye jab video load ho jaye */
-        .shaka-buffering-spinner { display: none !important; }
+
+        /* --- UI & BUTTONS FIX --- */
+        .shaka-overflow-menu, .shaka-settings-menu { background: rgba(0,0,0,0.9); border-radius: 10px; }
+        .shaka-bottom-controls { padding: 10px; }
+        
+        /* Buffering symbol (gol-gol) ko control karne ke liye */
+        .shaka-spinner-container {
+            display: flex !important;
+            opacity: 0; /* By default hide rahega */
+            transition: opacity 0.3s;
+        }
+        /* Sirf tab dikhega jab video sach mein 2 second se zyada ruke */
+        .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
+            opacity: 1;
+        }
+        .shaka-spinner-path { stroke: #fff !important; stroke-width: 4px; }
     </style>
 </head>
 <body>
@@ -24,14 +38,17 @@
     async function initPlayer() {
         shaka.polyfill.installAll();
         const video = document.getElementById('video');
-        const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
+        const player = new shaka.Player(video);
         
-        // UI Configuration
+        // UI Setup with Buttons
         const ui = new shaka.ui.Overlay(player, container, video);
-        ui.configure({ 'controlPanelElements': ['play_pause', 'mute', 'quality', 'fullscreen'] });
+        const config = {
+            'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'mute', 'quality', 'fullscreen'],
+            'addCustomButtons': true
+        };
+        ui.configure(config);
 
-        // URL Parsing
         const fullUrl = window.location.href;
         let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
         
@@ -43,21 +60,17 @@
 
         if (!streamUrl) return;
 
-        // --- AGGRESSIVE FIX FOR INSTANT PLAY ---
         player.configure({
             drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 1,           // 1 second ka buffer kafi hai
-                rebufferingGoal: 0.5,
+                bufferingGoal: 2, 
+                rebufferingGoal: 1,
                 lowLatencyMode: true,
-                autoLowLatency: true,
-                inaccuracy: 0.1,
-                jumpOnHung: true           // Agar wheel ghoome toh aage jump kar jao
-            },
-            manifest: { dash: { ignoreMinBufferTime: true } } // DASH ke liye buffering ignore karega
+                jumpOnHung: true,
+                stallThreshold: 2 // 2 second tak wait karega phir spinner dikhayega
+            }
         });
 
-        // Networking Headers
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
             if (streamUrl.includes('jio')) {
@@ -67,25 +80,9 @@
         });
 
         try {
-            // Video load hone se pehle hi use 'ready' state mein dalna
             await player.load(streamUrl);
-            
-            // Force Play Logic
-            video.muted = true; 
-            const playPromise = video.play();
-            
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    console.log("Video Started!");
-                }).catch(error => {
-                    // Agar browser block kare toh user click par chalao
-                    console.log("Autoplay blocked, waiting for click");
-                    window.addEventListener('click', () => { video.play(); }, { once: true });
-                });
-            }
-        } catch (e) {
-            console.error("Error:", e);
-        }
+            video.play();
+        } catch (e) { console.error(e); }
     }
 
     document.addEventListener('shaka-ui-loaded', initPlayer);
