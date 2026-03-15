@@ -10,74 +10,75 @@
         body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; }
-        #channelTitle { position: absolute; left: 10px; top: 10px; color: #fff; z-index: 100; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; font-family: sans-serif; }
     </style>
 </head>
 <body>
 
 <div class="shaka-video-container youtube-theme" data-shaka-player>
     <video autoplay muted playsinline id="video"></video>
-    <div id="channelTitle">Live Stream</div>
 </div>
 
 <script>
-    async function init() {
+    async function initPlayer() {
         shaka.polyfill.installAll();
         const video = document.getElementById('video');
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // 1. Pura URL uthao
-        const currentHref = window.location.href;
-        const urlParams = new URLSearchParams(window.location.search);
+        // --- URL SE DATA NIKALNE KA NAYA TARIKA ---
+        const fullUrl = window.location.href;
         
-        let m3u8OrMpd = urlParams.get('url');
-        let kid = urlParams.get('keyId');
-        let key = urlParams.get('key');
-
-        // 2. AGAR LINK MEIN "|" HAI (Naya format detect karne ke liye)
-        if (currentHref.includes('|drmScheme=')) {
-            // Link se DRM data nikalo
-            const drmPart = currentHref.split('drmLicense=')[1];
-            if (drmPart) {
-                const keys = drmPart.split(':');
-                kid = keys[0];
-                key = keys[1];
-            }
-            // URL ko clean karo (sirf .mpd tak rakho)
-            if (m3u8OrMpd.includes('|')) {
-                m3u8OrMpd = m3u8OrMpd.split('|')[0];
-            }
+        // 1. Stream URL nikalo
+        let streamUrl = "";
+        if (fullUrl.includes("url=")) {
+            streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
         }
 
-        if (!m3u8OrMpd) return;
+        // 2. DRM Keys nikalo (PV-CDN format ke liye)
+        let kid = "", key = "";
+        if (fullUrl.includes("drmLicense=")) {
+            const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
+            const keys = drmData.split(":");
+            kid = keys[0];
+            key = keys[1];
+        } else {
+            // Normal format ke liye
+            const params = new URLSearchParams(window.location.search);
+            kid = params.get('keyId');
+            key = params.get('key');
+        }
 
-        // 3. DRM Config
+        if (!streamUrl) return;
+
+        // DRM Configuration
         if (kid && key) {
             player.configure({
-                drm: { clearKeys: { [kid]: key } }
+                drm: {
+                    clearKeys: { [kid]: key }
+                }
             });
         }
 
-        // 4. Headers (JioTV ke liye)
+        // Networking Engine (Headers fix)
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            if (m3u8OrMpd.includes('jio')) {
+            // Sabhi DASH streams ke liye common headers
+            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+            
+            if (streamUrl.includes('jio')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
-                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13)";
             }
         });
 
         try {
-            await player.load(m3u8OrMpd);
-            console.log('Video loaded!');
-        } catch (e) {
-            console.error('Error loading video', e);
+            await player.load(streamUrl);
+            console.log("Success!");
+        } catch (error) {
+            console.error("Error Code:", error.code, "Data:", error.data);
         }
     }
 
-    document.addEventListener('shaka-ui-loaded', init);
-    document.addEventListener('shaka-polyfill-installed', init);
+    document.addEventListener('DOMContentLoaded', initPlayer);
 </script>
 </body>
 </html>
