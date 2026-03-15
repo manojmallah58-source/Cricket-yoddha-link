@@ -2,33 +2,47 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cricket Yoddha Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     
     <style>
-        body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; }
-        
-        /* Container settings */
-        .shaka-video-container { width: 100%; height: 100%; background-color: #000; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-
-        /* Bottom Controls Bar Styling */
-        .shaka-controls-container {
-            background: linear-gradient(transparent, rgba(0,0,0,0.8)) !important;
+        /* Pura page fill karne ke liye */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000;
         }
 
-        .shaka-bottom-controls {
+        /* Video container settings */
+        .shaka-video-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
+            justify-content: center;
             align-items: center;
-            padding: 0 10px !important;
+            background-color: #000;
         }
 
-        /* Seekbar (Neeche ki line) ko stylish banane ke liye */
-        .shaka-range-container { margin: 0 5px !important; }
+        /* --- SABSE IMPORTANT FIX YAHAN HAI --- */
+        video {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover; /* Video chhota nahi hoga, pure screen ko fill karega */
+            position: absolute;
+            top: 0;
+            left: 0;
+        }
+        /* ------------------------------------ */
 
-        /* Logo and Title */
+        /* Title Overlay */
         #channelTitle {
             position: absolute;
             left: 15px;
@@ -38,8 +52,9 @@
             padding: 5px 12px;
             border-radius: 4px;
             font-size: 14px;
-            z-index: 10;
+            z-index: 100; /* Taaki upar rahe */
             font-family: sans-serif;
+            pointer-events: none; /* Control panel mein interference na kare */
         }
     </style>
 </head>
@@ -58,57 +73,96 @@
         const player = new shaka.Player(video);
         const ui = new shaka.ui.Overlay(player, videoContainer, video);
 
-        // --- UI Configuration (Saare buttons ek line mein) ---
+        // UI Configuration (Controls)
         const config = {
             'controlPanelElements': [
-                'play_pause',      // Play button
+                'play_pause',      // Play
                 'time_and_duration', // Time
-                'spacer',          // Beech ka space
-                'mute',            // Mute/Unmute
+                'spacer',          // Space
+                'mute',            // Mute
                 'volume',          // Volume slider
-                'quality',         // Settings/Quality
+                'quality',         // Quality
                 'fullscreen',      // Fullscreen
-                'overflow_menu'    // Extra options
+                'overflow_menu'    // Options
             ],
             'addLanguageControls': true,
-            'castReceiverAppId': '7.1.5',
             'clearBufferOnQualityChange': true
         };
         ui.configure(config);
 
-        // URL Parsing logic
+        // Smart URL Parsing logic (handle keyId, key, and |drmLicense)
         const fullUrl = window.location.href;
-        let streamUrl = "";
-        let kid = "", key = "";
+        
+        // A. Normal parsing
+        const params = new URLSearchParams(window.location.search);
+        let streamUrl = params.get('url');
+        let kid = params.get('keyId');
+        let key = params.get('key');
+        let cookieHeader = params.get('cookie') || '';
+        document.getElementById('channelTitle').textContent = params.get('name') || 'Live Stream';
 
-        if (fullUrl.includes("url=")) {
-            streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
+        // B. Encode fix: URL encode special symbols in link
+        // This makes sure browser reads the link correctly.
+        function ensureEncoded(str) {
+            try {
+                return decodeURIComponent(str) === str ? encodeURI(str) : str;
+            } catch (e) {
+                return encodeURI(str);
+            }
         }
 
-        // DRM Parse (PV-CDN and others)
-        if (fullUrl.includes("drmLicense=")) {
-            const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
-            const keys = drmData.split(":");
-            kid = keys[0];
-            key = keys[1];
+        if (streamUrl) {
+            streamUrl = ensureEncoded(streamUrl);
         }
 
+        // C. Naye format (|drmLicense=) ko check karo aur split karo
+        if (streamUrl && streamUrl.includes('|drmLicense=')) {
+            const parts = streamUrl.split('|drmLicense=');
+            streamUrl = parts[0]; // Clean .mpd URL
+            if (parts[1]) {
+                const keyParts = parts[1].split(':');
+                kid = ensureEncoded(keyParts[0]);
+                key = ensureEncoded(keyParts[1]);
+            }
+        }
+
+        if (!streamUrl) return;
+
+        // DRM Configuration
         if (kid && key) {
             player.configure({
-                drm: { clearKeys: { [kid]: key } }
+                drm: {
+                    clearKeys: {
+                        [kid]: key
+                    }
+                }
             });
         }
 
-        // Networking Engine
+        // Networking Engine (Headers for Jio & others)
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            // Check streamUrl itself for common keywords
             if (streamUrl.includes('jio')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
-                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13)";
+                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
             }
+            if (cookieHeader) {
+                request.headers['Cookie'] = cookieHeader;
+                if (!request.uris[0].includes('__hdnea__=')) {
+                    const sep = request.uris[0].includes('?') ? '&' : '?';
+                    request.uris[0] += sep + cookieHeader;
+                }
+            }
+        });
+
+        // Player Low Latency Settings
+        player.configure({
+            streaming: { lowLatencyMode: true, rebufferingGoal: 2 }
         });
 
         try {
             await player.load(streamUrl);
+            console.log("Stream loaded successfully!");
         } catch (e) {
             console.error("Error loading stream", e);
         }
