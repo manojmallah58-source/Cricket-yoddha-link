@@ -2,76 +2,83 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Cricket Yoddha - Secure</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cricket Yoddha Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; }
-        #video { width: 100%; height: 100%; }
-        /* Right click rokne ke liye overlay */
-        .no-select { user-select: none; -webkit-user-select: none; }
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .shaka-video-container { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; }
     </style>
 </head>
-<body class="no-select" oncontextmenu="return false;">
+<body>
 
-<div class="shaka-video-container youtube-theme" data-shaka-player id="p-cont">
+<div class="shaka-video-container youtube-theme" data-shaka-player>
     <video autoplay muted playsinline id="video"></video>
 </div>
 
 <script>
-    // 1. DOMAIN LOCK (Apni domain yahan likho)
-    const allowedDomain = "yourdomain.com"; 
-    if (!window.location.hostname.includes(allowedDomain)) {
-        document.body.innerHTML = "<h1>Unauthorized Access</h1>";
+    async function initPlayer() {
+        shaka.polyfill.installAll();
+        const video = document.getElementById('video');
+        const player = new shaka.Player(video);
+        const container = document.querySelector('.shaka-video-container');
+        const ui = new shaka.ui.Overlay(player, container, video);
+
+        // --- URL SE DATA NIKALNE KA NAYA TARIKA ---
+        const fullUrl = window.location.href;
+        
+        // 1. Stream URL nikalo
+        let streamUrl = "";
+        if (fullUrl.includes("url=")) {
+            streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
+        }
+
+        // 2. DRM Keys nikalo (PV-CDN format ke liye)
+        let kid = "", key = "";
+        if (fullUrl.includes("drmLicense=")) {
+            const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
+            const keys = drmData.split(":");
+            kid = keys[0];
+            key = keys[1];
+        } else {
+            // Normal format ke liye
+            const params = new URLSearchParams(window.location.search);
+            kid = params.get('keyId');
+            key = params.get('key');
+        }
+
+        if (!streamUrl) return;
+
+        // DRM Configuration
+        if (kid && key) {
+            player.configure({
+                drm: {
+                    clearKeys: { [kid]: key }
+                }
+            });
+        }
+
+        // Networking Engine (Headers fix)
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            // Sabhi DASH streams ke liye common headers
+            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+            
+            if (streamUrl.includes('jio')) {
+                request.headers['Referer'] = 'https://www.jiotv.com/';
+            }
+        });
+
+        try {
+            await player.load(streamUrl);
+            console.log("Success!");
+        } catch (error) {
+            console.error("Error Code:", error.code, "Data:", error.data);
+        }
     }
 
-    (function(_0x123){
-        async function _init() {
-            shaka.polyfill.installAll();
-            const _v = document.getElementById('video');
-            const _p = new shaka.Player(_v);
-            const _ui = new shaka.ui.Overlay(_p, document.getElementById('p-cont'), _v);
-
-            // Encryption/Encoding ka ek layer
-            const _u = btoa(window.location.href); 
-            const _loc = atob(_u);
-
-            let _s = "", _k = "", _y = "";
-
-            try {
-                // Logic ko simplify karne ki jagah split logic ko obfuscate kiya
-                if (_loc.includes("url=")) {
-                    _s = _loc.split("url=")[1].split(/[|&]/)[0];
-                }
-                
-                if (_loc.includes("drmLicense=")) {
-                    const _d = _loc.split("drmLicense=")[1].split("&")[0].split(":");
-                    _k = _d[0]; _y = _d[1];
-                }
-
-                if (!_s) return;
-
-                if (_k && _y) {
-                    _p.configure({ drm: { clearKeys: { [_k]: _y } } });
-                }
-
-                _p.getNetworkingEngine().registerRequestFilter((t, r) => {
-                    r.headers['User-Agent'] = navigator.userAgent;
-                    if (_s.includes('jio')) r.headers['Referer'] = 'https://www.jiotv.com/';
-                });
-
-                await _p.load(_s);
-            } catch (e) { console.clear(); }
-        }
-        document.addEventListener('DOMContentLoaded', _init);
-    })();
-
-    // 2. DISABLE F12 & INSPECT
-    document.onkeydown = function(e) {
-        if(event.keyCode == 123 || (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'U'.charCodeAt(0)))) {
-            return false;
-        }
-    }
+    document.addEventListener('DOMContentLoaded', initPlayer);
 </script>
 </body>
 </html>
