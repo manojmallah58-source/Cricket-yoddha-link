@@ -3,80 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Ultra Fast Player</title>
+    <title>Cricket Yoddha - Instant Fix</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; }
-        /* Buffering icon ko customize karne ke liye agar zaroorat ho */
-        .shaka-spinner-svg { stroke: #ff0000 !important; } 
+        video { width: 100%; height: 100%; background: #000; }
+        /* Circle spinner ko hide karne ke liye agar stream chal rahi ho */
+        .shaka-spinner-container { display: none !important; } 
     </style>
 </head>
 <body>
 
 <div class="shaka-video-container youtube-theme" data-shaka-player>
-    <video autoplay muted playsinline id="video" poster="https://img.youtube.com/vi/j3_7v6O6XUo/maxresdefault.jpg"></video>
+    <video autoplay muted playsinline id="video"></video>
 </div>
 
 <script>
     async function initPlayer() {
         shaka.polyfill.installAll();
-        if (!shaka.Player.isBrowserSupported()) return;
-
         const video = document.getElementById('video');
-        const container = document.querySelector('.shaka-video-container');
         const player = new shaka.Player(video);
-        
-        // UI Overlay initialization
+        const container = document.querySelector('.shaka-video-container');
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // --- URL SE DATA NIKALNE KA LOGIC ---
-        const urlParams = new URLSearchParams(window.location.search);
+        // URL parsing logic
         const fullUrl = window.location.href;
-        
         let streamUrl = "";
         if (fullUrl.includes("url=")) {
             streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
         }
 
-        let kid = urlParams.get('keyId'), key = urlParams.get('key');
+        let kid = "", key = "";
         if (fullUrl.includes("drmLicense=")) {
             const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
             const keys = drmData.split(":");
-            kid = keys[0];
-            key = keys[1];
+            kid = keys[0]; key = keys[1];
+        } else {
+            const params = new URLSearchParams(window.location.search);
+            kid = params.get('keyId'); key = params.get('key');
         }
 
         if (!streamUrl) return;
 
-        // --- ULTRA FAST CONFIGURATION (Buffering Fix) ---
+        // --- AGGRESSIVE INSTANT PLAY SETTINGS ---
         player.configure({
-            drm: {
-                clearKeys: (kid && key) ? { [kid]: key } : {}
-            },
+            drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 3,           // Pehle ye 10+ tha, ab sirf 3s load karega
-                rebufferingGoal: 1,         // 1 second ka data aate hi phir se chalu
-                lowLatencyMode: true,       // Live streams ke liye sabse important
+                bufferingGoal: 0.5,         // Sirf 0.5 sec ka data aate hi play karega
+                rebufferingGoal: 0.5,
+                bufferBehind: 0,
+                lowLatencyMode: true,
                 autoLowLatency: true,
-                inaccuracy: 0.1,            // Seek accuracy badhata hai
-                jumpOnHung: true,           // Atakne par auto-skip karega
-                stallThreshold: 1,          // 1 sec stall hote hi action lega
-                infiniteLiveDelay: false
+                forceTransmuxTS: true,      // TS files ko fast convert karne ke liye
+                jumpOnHung: true,
+                ignoreTextStreamFailures: true,
+                alwaysStreamText: false
+            },
+            manifest: {
+                dash: { autoCorrectDrift: true },
+                retryParameters: { maxAttempts: 5, baseDelay: 100, backoffFactor: 1.2 }
             },
             abr: {
-                enabled: true,
-                defaultBandwidthEstimate: 1000000, // Medium quality se shuru karega taki turant chale
-                switchInterval: 1
+                enabled: false,             // Auto quality off karke seedha load karega
+                defaultBandwidthEstimate: 100000 
             }
         });
 
-        // --- HEADERS & REFRESH LOGIC ---
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-            
+            // Jio/CDN streams ke liye headers
             if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
                 request.headers['Origin'] = 'https://www.jiotv.com';
@@ -85,13 +82,14 @@
 
         try {
             await player.load(streamUrl);
-            // Browser policy bypass karne ke liye
-            video.play().catch(() => {
-                console.log("Autoplay blocked, waiting for user interaction");
-            });
-            console.log("Cricket Yoddha Player Ready!");
-        } catch (error) {
-            console.error("Error Loading Stream:", error.code);
+            // Ek baar load hone ke baad turant play command
+            video.muted = true; // Autoplay ensure karne ke liye
+            video.play();
+            console.log("Instant Play Done!");
+        } catch (e) {
+            console.error("Error:", e.code);
+            // Agar fail ho toh refresh logic
+            setTimeout(() => { window.location.reload(); }, 2000);
         }
     }
 
