@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Pro UI</title>
+    <title>Cricket Yoddha - Custom UI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
@@ -11,21 +11,24 @@
         .shaka-video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; background: #000; }
 
-        /* --- UI MATCHING YOUR IMAGE --- */
+        /* --- SCREENSHOT MATCHING UI --- */
         .shaka-bottom-controls {
             display: flex;
             align-items: center;
-            padding: 0 10px;
+            padding: 0 15px !important;
+            height: 50px;
         }
 
-        /* Spinner fix */
+        /* Seekbar (Niche wali line) ko set karne ke liye */
+        .shaka-range-container {
+            bottom: 45px !important;
+        }
+
+        /* Spinner fix (taaki faltu mein na ghoome) */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important; visibility: visible !important;
         }
-
-        /* Custom Refresh Button Style */
-        .shaka-refresh-button { font-size: 1.2em; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -35,48 +38,24 @@
 </div>
 
 <script>
-    // --- CUSTOM BUTTON LOGIC ---
-    class RefreshButton extends shaka.ui.Element {
-      constructor(parent, controls) {
-        super(parent, controls);
-        this.button_ = document.createElement('button');
-        this.button_.classList.add('shaka-refresh-button');
-        this.button_.innerHTML = "🔄"; // You can use an icon here
-        this.parent.appendChild(this.button_);
-        this.eventManager.listen(this.button_, 'click', () => {
-          window.location.reload();
-        });
-      }
-    }
-
-    const RefreshButtonFactory = {
-      create: (parent, controls) => new RefreshButton(parent, controls)
-    };
-
-    shaka.ui.Controls.registerElement('refresh', RefreshButtonFactory);
-
     async function initPlayer() {
         shaka.polyfill.installAll();
         const video = document.getElementById('video');
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
-        // --- UI CONFIGURATION ---
+        // --- SIRF WAHI BUTTONS JO AAPNE KAHE ---
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
             'controlPanelElements': [
-                'play_pause', 
-                'time_and_duration', 
-                'mute', 
-                'volume', 
-                'spacer', 
-                'quality', 
-                'language', 
-                'refresh', // Our custom button
-                'fullscreen', 
-                'overflow_menu'
-            ],
-            'addCustomButtons': true
+                'play_pause',      // Play button
+                'time_and_duration', // 0:00 wala time
+                'mute',            // Speaker icon
+                'volume',          // Volume slider line
+                'spacer',          // Beech ka khali space (taaki baaki buttons right mein chale jayein)
+                'quality',         // Settings/Gear icon
+                'fullscreen'       // Extra Full Screen button
+            ]
         });
 
         // URL Parsing logic
@@ -97,7 +76,7 @@
         player.configure({
             drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 6,
+                bufferingGoal: 4,
                 rebufferingGoal: 2,
                 lowLatencyMode: true,
                 stallThreshold: 1,
@@ -117,7 +96,7 @@
             await player.load(streamUrl);
             await video.play();
         } catch (e) {
-            console.error("Load Error:", e);
+            console.error("Error loading stream:", e);
         }
     }
 
