@@ -3,84 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha Player</title>
+    <title>Cricket Yoddha - Smooth Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: sans-serif; }
+        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; object-fit: contain; }
-        #channelTitle { position: absolute; left: 15px; top: 15px; color: #fff; z-index: 100; background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 8px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); }
+        video { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
 
 <div class="shaka-video-container youtube-theme" data-shaka-player>
     <video autoplay muted playsinline id="video"></video>
-    <div id="channelTitle">Cricket Yoddha Live</div>
 </div>
 
 <script>
     async function init() {
         shaka.polyfill.installAll();
-        if (!shaka.Player.isBrowserSupported()) {
-            console.error('Browser not supported!');
-            return;
-        }
-
         const video = document.getElementById('video');
-        const container = document.querySelector('.shaka-video-container');
         const player = new shaka.Player(video);
+        const container = document.querySelector('.shaka-video-container');
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // --- Low Latency & Fast Start Config ---
+        // --- AGGRESSIVE CONFIG FOR NO BUFFERING ---
         player.configure({
             streaming: {
-                bufferingGoal: 2,           // Kam data par bhi chalega
-                rebufferingGoal: 1,        // Lag hone par turant start hoga
-                lowLatencyMode: true,      // Live match ke liye best
-                jumpLargeGaps: true        // Agar stream ruk jaye toh aage jump kar lega
+                bufferingGoal: 0.5,           // Sirf 0.5 sec ka data milte hi play karo
+                rebufferingGoal: 0.5,         // Lag hote hi turant load karo
+                bufferBehind: 0,              // Peeche ka data clear rakho memory free karne ke liye
+                lowLatencyMode: true,         // Live match latency kam karega
+                jumpLargeGaps: true,          // Gap aate hi jump karo, loading mat dikhao
+                infiniteRebuffering: false    // Atakne par load karte mat raho, next segment pakdo
             },
             manifest: {
-                retryParameters: { maxAttempts: 5 }
+                retryParameters: { 
+                    maxAttempts: 10,          // Retry more times
+                    baseDelay: 500            // Retry faster
+                }
             }
         });
 
-        // URL parsing logic
         const urlParams = new URLSearchParams(window.location.search);
         let m3u8OrMpd = urlParams.get('url');
         let kid = urlParams.get('keyId');
         let key = urlParams.get('key');
 
-        // Handling the pipe "|" format automatically
-        if (m3u8OrMpd && m3u8OrMpd.includes('|')) {
-            const parts = m3u8OrMpd.split('|');
-            m3u8OrMpd = parts[0]; 
-            // Agar keys URL ke andar pipe ke baad hain toh yahan logic add kar sakte hain
-        }
-
-        // DRM Setup
+        // DRM Setup (Ensure format is correct)
         if (kid && key) {
             player.configure({
                 drm: {
-                    clearKeys: { [kid]: key }
+                    clearKeys: { [kid]: key },
+                    retryParameters: { maxAttempts: 5 }
                 }
             });
         }
 
-        // JioTV/Special Headers Filter
+        // Essential for Jio/Willow links that check origin
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            if (m3u8OrMpd.includes('jio') || m3u8OrMpd.includes('tata')) {
-                // Request headers (Note: Browser CORS limits apply)
-                request.headers['Referer'] = 'https://www.jiotv.com/';
+            if (m3u8OrMpd.includes('jio') || m3u8OrMpd.includes('willow')) {
+                // Request modifications if needed
             }
         });
 
         try {
             await player.load(m3u8OrMpd);
-            console.log('Match Loaded Successfully!');
+            video.play(); // Force play
         } catch (e) {
-            console.error('Error loading video:', e.code);
+            console.error('Error Code:', e.code, 'Check if URL or Keys are valid.');
         }
     }
 
