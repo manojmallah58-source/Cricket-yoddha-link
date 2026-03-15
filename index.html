@@ -7,51 +7,59 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: sans-serif; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        #channelTitle { position: absolute; left: 15px; top: 15px; color: #fff; z-index: 100; background: rgba(0,0,0,0.6); padding: 8px 15px; border-radius: 8px; font-weight: bold; border: 1px solid rgba(255,255,255,0.2); }
     </style>
 </head>
 <body>
 
 <div class="shaka-video-container youtube-theme" data-shaka-player>
     <video autoplay muted playsinline id="video"></video>
+    <div id="channelTitle">Cricket Yoddha Live</div>
 </div>
 
 <script>
-    async function initPlayer() {
+    async function init() {
         shaka.polyfill.installAll();
+        if (!shaka.Player.isBrowserSupported()) {
+            console.error('Browser not supported!');
+            return;
+        }
+
         const video = document.getElementById('video');
-        const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
+        const player = new shaka.Player(video);
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // --- URL SE DATA NIKALNE KA NAYA TARIKA ---
-        const fullUrl = window.location.href;
-        
-        // 1. Stream URL nikalo
-        let streamUrl = "";
-        if (fullUrl.includes("url=")) {
-            streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
+        // --- Low Latency & Fast Start Config ---
+        player.configure({
+            streaming: {
+                bufferingGoal: 2,           // Kam data par bhi chalega
+                rebufferingGoal: 1,        // Lag hone par turant start hoga
+                lowLatencyMode: true,      // Live match ke liye best
+                jumpLargeGaps: true        // Agar stream ruk jaye toh aage jump kar lega
+            },
+            manifest: {
+                retryParameters: { maxAttempts: 5 }
+            }
+        });
+
+        // URL parsing logic
+        const urlParams = new URLSearchParams(window.location.search);
+        let m3u8OrMpd = urlParams.get('url');
+        let kid = urlParams.get('keyId');
+        let key = urlParams.get('key');
+
+        // Handling the pipe "|" format automatically
+        if (m3u8OrMpd && m3u8OrMpd.includes('|')) {
+            const parts = m3u8OrMpd.split('|');
+            m3u8OrMpd = parts[0]; 
+            // Agar keys URL ke andar pipe ke baad hain toh yahan logic add kar sakte hain
         }
 
-        // 2. DRM Keys nikalo (PV-CDN format ke liye)
-        let kid = "", key = "";
-        if (fullUrl.includes("drmLicense=")) {
-            const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
-            const keys = drmData.split(":");
-            kid = keys[0];
-            key = keys[1];
-        } else {
-            // Normal format ke liye
-            const params = new URLSearchParams(window.location.search);
-            kid = params.get('keyId');
-            key = params.get('key');
-        }
-
-        if (!streamUrl) return;
-
-        // DRM Configuration
+        // DRM Setup
         if (kid && key) {
             player.configure({
                 drm: {
@@ -60,25 +68,24 @@
             });
         }
 
-        // Networking Engine (Headers fix)
+        // JioTV/Special Headers Filter
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            // Sabhi DASH streams ke liye common headers
-            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-            
-            if (streamUrl.includes('jio')) {
+            if (m3u8OrMpd.includes('jio') || m3u8OrMpd.includes('tata')) {
+                // Request headers (Note: Browser CORS limits apply)
                 request.headers['Referer'] = 'https://www.jiotv.com/';
             }
         });
 
         try {
-            await player.load(streamUrl);
-            console.log("Success!");
-        } catch (error) {
-            console.error("Error Code:", error.code, "Data:", error.data);
+            await player.load(m3u8OrMpd);
+            console.log('Match Loaded Successfully!');
+        } catch (e) {
+            console.error('Error loading video:', e.code);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', initPlayer);
+    document.addEventListener('shaka-ui-loaded', init);
+    document.addEventListener('shaka-polyfill-installed', init);
 </script>
 </body>
 </html>
