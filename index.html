@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Smooth Player</title>
+    <title>Cricket Yoddha Pro Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { margin: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; font-family: sans-serif; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; object-fit: contain; }
     </style>
 </head>
 <body>
@@ -19,63 +19,80 @@
 </div>
 
 <script>
-    async function init() {
+    async function initPlayer() {
         shaka.polyfill.installAll();
+        if (!shaka.Player.isBrowserSupported()) {
+            console.error('Browser not supported!');
+            return;
+        }
+
         const video = document.getElementById('video');
-        const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
+        const player = new shaka.Player(video);
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // --- AGGRESSIVE CONFIG FOR NO BUFFERING ---
+        // --- DATA EXTRACTION ---
+        const fullUrl = window.location.href;
+        let streamUrl = "";
+        if (fullUrl.includes("url=")) {
+            streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
+        }
+
+        let kid = "", key = "";
+        if (fullUrl.includes("drmLicense=")) {
+            const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
+            const keys = drmData.split(":");
+            kid = keys[0];
+            key = keys[1];
+        } else {
+            const params = new URLSearchParams(window.location.search);
+            kid = params.get('keyId');
+            key = params.get('key');
+        }
+
+        if (!streamUrl) return;
+
+        // --- OPTIMIZED CONFIGURATION (Buffering Fix) ---
         player.configure({
-            streaming: {
-                bufferingGoal: 0.5,           // Sirf 0.5 sec ka data milte hi play karo
-                rebufferingGoal: 0.5,         // Lag hote hi turant load karo
-                bufferBehind: 0,              // Peeche ka data clear rakho memory free karne ke liye
-                lowLatencyMode: true,         // Live match latency kam karega
-                jumpLargeGaps: true,          // Gap aate hi jump karo, loading mat dikhao
-                infiniteRebuffering: false    // Atakne par load karte mat raho, next segment pakdo
+            drm: {
+                clearKeys: (kid && key) ? { [kid]: key } : {}
             },
-            manifest: {
-                retryParameters: { 
-                    maxAttempts: 10,          // Retry more times
-                    baseDelay: 500            // Retry faster
-                }
+            streaming: {
+                bufferingGoal: 5,           // Sirf 5 sec ka buffer rakhega (Fast Start)
+                rebufferingGoal: 1,         // Buffer hone par 1 sec mein restart hoga
+                bufferBehind: 10,           // Piche ka buffer kam rakhega cache clear karne ke liye
+                lowLatencyMode: true,       // Live streams ke liye best hai
+                autoLowLatency: true,
+                stallThreshold: 1,          // Jhat se detect karega agar stream ruki toh
+                jumpOnHung: true            // Agar stream atak jaye toh aage jump kar jayega
+            },
+            abr: {
+                enabled: true,              // Auto-quality on
+                defaultBandwidthEstimate: 1000000, // Thoda kam se shuru karega taki turant chale
+                restrictions: { minHeight: 144 }
             }
         });
 
-        const urlParams = new URLSearchParams(window.location.search);
-        let m3u8OrMpd = urlParams.get('url');
-        let kid = urlParams.get('keyId');
-        let key = urlParams.get('key');
-
-        // DRM Setup (Ensure format is correct)
-        if (kid && key) {
-            player.configure({
-                drm: {
-                    clearKeys: { [kid]: key },
-                    retryParameters: { maxAttempts: 5 }
-                }
-            });
-        }
-
-        // Essential for Jio/Willow links that check origin
+        // --- NETWORKING ENGINE (Headers Fix) ---
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            if (m3u8OrMpd.includes('jio') || m3u8OrMpd.includes('willow')) {
-                // Request modifications if needed
+            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+            
+            if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
+                request.headers['Referer'] = 'https://www.jiotv.com/';
+                request.headers['Origin'] = 'https://www.jiotv.com';
             }
         });
 
         try {
-            await player.load(m3u8OrMpd);
-            video.play(); // Force play
-        } catch (e) {
-            console.error('Error Code:', e.code, 'Check if URL or Keys are valid.');
+            await player.load(streamUrl);
+            console.log("Player Loaded Successfully!");
+        } catch (error) {
+            console.error("Error Code:", error.code, "Data:", error.data);
         }
     }
 
-    document.addEventListener('shaka-ui-loaded', init);
-    document.addEventListener('shaka-polyfill-installed', init);
+    document.addEventListener('shaka-ui-loaded', initPlayer);
+    document.addEventListener('shaka-install-failed', () => console.error("Shaka Install Failed"));
 </script>
 </body>
 </html>
