@@ -2,173 +2,76 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cricket Yoddha Player</title>
+    <title>Cricket Yoddha - Secure</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
-    
     <style>
-        /* Pura page fill karne ke liye */
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000;
-        }
-
-        /* Video container settings */
-        .shaka-video-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-color: #000;
-        }
-
-        /* --- SABSE IMPORTANT FIX YAHAN HAI --- */
-        video {
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover; /* Video chhota nahi hoga, pure screen ko fill karega */
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        /* ------------------------------------ */
-
-        /* Title Overlay */
-        #channelTitle {
-            position: absolute;
-            left: 15px;
-            top: 15px;
-            color: white;
-            background: rgba(0,0,0,0.5);
-            padding: 5px 12px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 100; /* Taaki upar rahe */
-            font-family: sans-serif;
-            pointer-events: none; /* Control panel mein interference na kare */
-        }
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; }
+        #video { width: 100%; height: 100%; }
+        /* Right click rokne ke liye overlay */
+        .no-select { user-select: none; -webkit-user-select: none; }
     </style>
 </head>
-<body>
+<body class="no-select" oncontextmenu="return false;">
 
-<div class="shaka-video-container youtube-theme" data-shaka-player id="videoContainer">
+<div class="shaka-video-container youtube-theme" data-shaka-player id="p-cont">
     <video autoplay muted playsinline id="video"></video>
-    <div id="channelTitle">Live Stream</div>
 </div>
 
 <script>
-    async function initPlayer() {
-        shaka.polyfill.installAll();
-        const video = document.getElementById('video');
-        const videoContainer = document.getElementById('videoContainer');
-        const player = new shaka.Player(video);
-        const ui = new shaka.ui.Overlay(player, videoContainer, video);
-
-        // UI Configuration (Controls)
-        const config = {
-            'controlPanelElements': [
-                'play_pause',      // Play
-                'time_and_duration', // Time
-                'spacer',          // Space
-                'mute',            // Mute
-                'volume',          // Volume slider
-                'quality',         // Quality
-                'fullscreen',      // Fullscreen
-                'overflow_menu'    // Options
-            ],
-            'addLanguageControls': true,
-            'clearBufferOnQualityChange': true
-        };
-        ui.configure(config);
-
-        // Smart URL Parsing logic (handle keyId, key, and |drmLicense)
-        const fullUrl = window.location.href;
-        
-        // A. Normal parsing
-        const params = new URLSearchParams(window.location.search);
-        let streamUrl = params.get('url');
-        let kid = params.get('keyId');
-        let key = params.get('key');
-        let cookieHeader = params.get('cookie') || '';
-        document.getElementById('channelTitle').textContent = params.get('name') || 'Live Stream';
-
-        // B. Encode fix: URL encode special symbols in link
-        // This makes sure browser reads the link correctly.
-        function ensureEncoded(str) {
-            try {
-                return decodeURIComponent(str) === str ? encodeURI(str) : str;
-            } catch (e) {
-                return encodeURI(str);
-            }
-        }
-
-        if (streamUrl) {
-            streamUrl = ensureEncoded(streamUrl);
-        }
-
-        // C. Naye format (|drmLicense=) ko check karo aur split karo
-        if (streamUrl && streamUrl.includes('|drmLicense=')) {
-            const parts = streamUrl.split('|drmLicense=');
-            streamUrl = parts[0]; // Clean .mpd URL
-            if (parts[1]) {
-                const keyParts = parts[1].split(':');
-                kid = ensureEncoded(keyParts[0]);
-                key = ensureEncoded(keyParts[1]);
-            }
-        }
-
-        if (!streamUrl) return;
-
-        // DRM Configuration
-        if (kid && key) {
-            player.configure({
-                drm: {
-                    clearKeys: {
-                        [kid]: key
-                    }
-                }
-            });
-        }
-
-        // Networking Engine (Headers for Jio & others)
-        player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            // Check streamUrl itself for common keywords
-            if (streamUrl.includes('jio')) {
-                request.headers['Referer'] = 'https://www.jiotv.com/';
-                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
-            }
-            if (cookieHeader) {
-                request.headers['Cookie'] = cookieHeader;
-                if (!request.uris[0].includes('__hdnea__=')) {
-                    const sep = request.uris[0].includes('?') ? '&' : '?';
-                    request.uris[0] += sep + cookieHeader;
-                }
-            }
-        });
-
-        // Player Low Latency Settings
-        player.configure({
-            streaming: { lowLatencyMode: true, rebufferingGoal: 2 }
-        });
-
-        try {
-            await player.load(streamUrl);
-            console.log("Stream loaded successfully!");
-        } catch (e) {
-            console.error("Error loading stream", e);
-        }
+    // 1. DOMAIN LOCK (Apni domain yahan likho)
+    const allowedDomain = "yourdomain.com"; 
+    if (!window.location.hostname.includes(allowedDomain)) {
+        document.body.innerHTML = "<h1>Unauthorized Access</h1>";
     }
 
-    document.addEventListener('shaka-ui-loaded', initPlayer);
+    (function(_0x123){
+        async function _init() {
+            shaka.polyfill.installAll();
+            const _v = document.getElementById('video');
+            const _p = new shaka.Player(_v);
+            const _ui = new shaka.ui.Overlay(_p, document.getElementById('p-cont'), _v);
+
+            // Encryption/Encoding ka ek layer
+            const _u = btoa(window.location.href); 
+            const _loc = atob(_u);
+
+            let _s = "", _k = "", _y = "";
+
+            try {
+                // Logic ko simplify karne ki jagah split logic ko obfuscate kiya
+                if (_loc.includes("url=")) {
+                    _s = _loc.split("url=")[1].split(/[|&]/)[0];
+                }
+                
+                if (_loc.includes("drmLicense=")) {
+                    const _d = _loc.split("drmLicense=")[1].split("&")[0].split(":");
+                    _k = _d[0]; _y = _d[1];
+                }
+
+                if (!_s) return;
+
+                if (_k && _y) {
+                    _p.configure({ drm: { clearKeys: { [_k]: _y } } });
+                }
+
+                _p.getNetworkingEngine().registerRequestFilter((t, r) => {
+                    r.headers['User-Agent'] = navigator.userAgent;
+                    if (_s.includes('jio')) r.headers['Referer'] = 'https://www.jiotv.com/';
+                });
+
+                await _p.load(_s);
+            } catch (e) { console.clear(); }
+        }
+        document.addEventListener('DOMContentLoaded', _init);
+    })();
+
+    // 2. DISABLE F12 & INSPECT
+    document.onkeydown = function(e) {
+        if(event.keyCode == 123 || (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0) || e.keyCode == 'U'.charCodeAt(0)))) {
+            return false;
+        }
+    }
 </script>
 </body>
 </html>
