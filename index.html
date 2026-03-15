@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - UI Fixed</title>
+    <title>Cricket Yoddha - Full Fix</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
@@ -12,20 +12,24 @@
         video { width: 100%; height: 100%; }
 
         /* --- UI & BUTTONS FIX --- */
-        .shaka-overflow-menu, .shaka-settings-menu { background: rgba(0,0,0,0.9); border-radius: 10px; }
-        .shaka-bottom-controls { padding: 10px; }
+        .shaka-bottom-controls { display: flex; align-items: center; }
         
-        /* Buffering symbol (gol-gol) ko control karne ke liye */
+        /* Quality menu ko thik karne ke liye */
+        .shaka-settings-menu { 
+            background: rgba(20, 20, 20, 0.95); 
+            border-radius: 8px; 
+            font-family: sans-serif;
+        }
+
+        /* Gol gol circle (spinner) fix */
         .shaka-spinner-container {
             display: flex !important;
-            opacity: 0; /* By default hide rahega */
+            opacity: 0; 
             transition: opacity 0.3s;
         }
-        /* Sirf tab dikhega jab video sach mein 2 second se zyada ruke */
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1;
         }
-        .shaka-spinner-path { stroke: #fff !important; stroke-width: 4px; }
     </style>
 </head>
 <body>
@@ -41,13 +45,13 @@
         const container = document.querySelector('.shaka-video-container');
         const player = new shaka.Player(video);
         
-        // UI Setup with Buttons
+        // --- QUALITY BUTTON FIX ---
+        // 'overflow_menu' ko include karna padta hai quality settings ke liye
         const ui = new shaka.ui.Overlay(player, container, video);
-        const config = {
-            'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'mute', 'quality', 'fullscreen'],
-            'addCustomButtons': true
-        };
-        ui.configure(config);
+        ui.configure({
+            'controlPanelElements': ['play_pause', 'time_and_duration', 'spacer', 'mute', 'overflow_menu', 'fullscreen'],
+            'overflowMenuButtons' : ['quality', 'playback_rate']
+        });
 
         const fullUrl = window.location.href;
         let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
@@ -56,6 +60,9 @@
         if (fullUrl.includes("drmLicense=")) {
             const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
             kid = keys[0]; key = keys[1];
+        } else {
+            const params = new URLSearchParams(window.location.search);
+            kid = params.get('keyId'); key = params.get('key');
         }
 
         if (!streamUrl) return;
@@ -67,8 +74,9 @@
                 rebufferingGoal: 1,
                 lowLatencyMode: true,
                 jumpOnHung: true,
-                stallThreshold: 2 // 2 second tak wait karega phir spinner dikhayega
-            }
+                stallThreshold: 2
+            },
+            abr: { enabled: true } // Quality change karne ke liye ABR on hona chahiye
         });
 
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
@@ -82,7 +90,7 @@
         try {
             await player.load(streamUrl);
             video.play();
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Load Error:", e); }
     }
 
     document.addEventListener('shaka-ui-loaded', initPlayer);
