@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Shaka Player</title>
+    <title>Fast Load Shaka Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     
@@ -22,7 +22,7 @@
 </head>
 <body>
 
-<div class="shaka-video-container" data-shaka-player-container>
+<div class="shaka-video-container youtube-theme" data-shaka-player-container>
     <video autoplay muted playsinline id="video" data-shaka-player poster="https://blogger.googleusercontent.com/img/a/AVvXsEiGqaZeRBZ6Y7yV5ZYSRiNRhBa5q9_EMx7R5TJcHd3XJwwHh2YhNOGt76Y4vEcUIjvIaA7W-Tw1RyMLP-4WZwVHA4mk18zwXl7HdSL5WabprIasDOWJO7jpL0zTQB4p_y7X0Rv0xwe-cJ-GvxofAgeRp2FIiNgB90n_b8Cqw0sAaZqVhJg_fi9UyfSO8KY"></video>
     <div id="channelTitle"></div>
     <div class="manual-play-button" id="manualPlayButton">▶ Click to Play</div>
@@ -38,66 +38,62 @@
         const player = new shaka.Player(video);
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // --- HARDCORE URL PARSING (Special for Pipe '|' format) ---
+        // --- HARDCORE URL PARSING ---
         const fullLocation = window.location.href;
         let manifestUri = '';
         let keyId = '';
         let key = '';
 
         if (fullLocation.includes('url=')) {
-            // Extract everything after 'url='
             let queryPart = fullLocation.split('url=')[1];
-            
             if (queryPart.includes('|')) {
                 const parts = queryPart.split('|');
                 manifestUri = decodeURIComponent(parts[0]);
-                
-                // License extraction logic
                 const drmPart = parts.find(p => p.includes('drmLicense='));
                 if (drmPart) {
                     const keys = drmPart.split('drmLicense=')[1].split(':');
-                    keyId = keys[0];
-                    key = keys[1];
+                    keyId = keys[0]; key = keys[1];
                 }
             } else {
                 manifestUri = decodeURIComponent(queryPart.split('&')[0]);
             }
         }
 
-        // Baki ke params (Cookie, Name) normal tarike se
         const urlParams = new URLSearchParams(window.location.search);
         const cookieHeader = urlParams.get('cookie') || '';
         document.getElementById('channelTitle').textContent = urlParams.get('name') || '';
 
         // --- DRM CONFIG ---
         if (keyId && key) {
-            player.configure({
-                drm: { clearKeys: { [keyId]: key } }
-            });
+            player.configure({ drm: { clearKeys: { [keyId]: key } } });
         }
 
-        // --- HEADERS & COOKIES (Aapki purani settings) ---
+        // --- NETWORKING (Same to Same) ---
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             request.headers['Referer'] = 'https://www.jiotv.com/';
             request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
-
             if (cookieHeader) {
                 request.headers['Cookie'] = cookieHeader;
-                // Append cookie to manifest/segment URL if not present
-                if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || 
-                     type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && 
-                    !request.uris[0].includes('__hdnea__=')) {
+                if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && !request.uris[0].includes('__hdnea__=')) {
                     const sep = request.uris[0].includes('?') ? '&' : '?';
                     request.uris[0] += sep + cookieHeader;
                 }
             }
         });
 
+        // --- FAST START CONFIG (Buffering Fix) ---
         player.configure({
             streaming: {
+                bufferingGoal: 2,        // Sirf 2 sec ka buffer banaye
+                rebufferingGoal: 1,      // Playback stop hone par sirf 1 sec load kare
+                bufferBehind: 0,
                 lowLatencyMode: true,
                 jumpLargeGaps: true,
-                rebufferingGoal: 2
+                inaccurateManifestTolerance: 0,
+                startAtLiveEdge: true    // Live stream ko turant edge se start kare
+            },
+            manifest: {
+                availabilityWindowOverride: 10
             }
         });
 
@@ -105,21 +101,15 @@
 
         try {
             await player.load(manifestUri);
-            console.log('Stream loaded successfully');
+            video.play().catch(() => { manualBtn.style.display = 'block'; });
         } catch (e) {
-            console.error('Error code:', e.code, 'object:', e);
-            // Agar load fail ho toh button dikhayein shayad user interaction chahiye
+            console.error('Error:', e);
             manualBtn.style.display = 'block';
         }
 
         manualBtn.addEventListener('click', async () => {
             video.muted = false;
             await video.play();
-            manualBtn.style.display = 'none';
-        });
-
-        // Video play event to hide button if it starts
-        video.addEventListener('play', () => {
             manualBtn.style.display = 'none';
         });
     });
