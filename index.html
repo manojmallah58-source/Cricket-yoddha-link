@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Instant Play Fix</title>
+    <title>Cricket Yoddha - Final Stable Fix</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
@@ -11,14 +11,14 @@
         .shaka-video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; background: #000; }
 
-        /* --- GOL GOL CIRCLE (SPINNER) FIX --- */
-        /* Spinner ko tab tak hide rakho jab tak buffering extreme na ho */
+        /* --- UI & BUTTONS FIX --- */
+        .shaka-bottom-controls { display: flex; align-items: center; }
+        
+        /* Gol-gol circle (Spinner) ko tabhi dikhao jab sach mein zarurat ho */
         .shaka-spinner-container {
             opacity: 0 !important;
             visibility: hidden !important;
-            transition: opacity 0.5s;
         }
-        /* Agar video 3 second se zyada ruke tabhi dikhao */
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important;
             visibility: visible !important;
@@ -38,11 +38,11 @@
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
-        // UI Configuration (Buttons wahi rakhe hain jo aapne mange the)
+        // --- BUTTONS SETUP ---
         const ui = new shaka.ui.Overlay(player, container, video);
-        ui.configure({ 
+        ui.configure({
             'controlPanelElements': ['play_pause', 'mute', 'quality', 'fullscreen'],
-            'doubleClickForFullscreen': true
+            'addCustomButtons': true
         });
 
         // URL Parsing logic
@@ -60,25 +60,26 @@
 
         if (!streamUrl) return;
 
-        // --- INSTANT PLAY CONFIGURATION ---
+        // --- STABILITY & BUFFER FIX ---
         player.configure({
             drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 0.1,        // Sirf 0.1 second ka data aate hi play
-                rebufferingGoal: 0.1,      // Buffering hone par turant start
+                bufferingGoal: 4,           // 4 second ka buffer load karega (Taki ruke nahi)
+                rebufferingGoal: 2,         // Agar stream rukti hai toh 2 second load hote hi chalu
+                bufferBehind: 0,
                 lowLatencyMode: true,
                 autoLowLatency: true,
-                inaccuracy: 0,             // Precise loading
-                jumpOnHung: true,          // Atakne par turant aage jump
-                stallThreshold: 1          // 1 second se zyada wait nahi karega
+                stallThreshold: 1,          // 1 second se zyada pause nahi rehne dega
+                jumpOnHung: true,           // Atakne par turant aage jump karega
+                inaccuracy: 0.1
             },
-            manifest: { 
+            manifest: {
                 dash: { ignoreMinBufferTime: true },
-                retryParameters: { maxAttempts: 5 } 
-            }
+                retryParameters: { maxAttempts: 10, baseDelay: 500 }
+            },
+            abr: { enabled: true } 
         });
 
-        // Headers optimization
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
             if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
@@ -89,21 +90,18 @@
 
         try {
             await player.load(streamUrl);
-            
-            // Force play after load
             video.muted = true;
             await video.play();
-            console.log("Instant Start Success!");
+            console.log("Play Started Successfully!");
 
-            // Ek extra check: agar video paused state mein rahe toh force play karega
-            setInterval(() => {
-                if (video.paused && !video.ended) {
-                    video.play().catch(() => {});
-                }
-            }, 1000);
-
+            // Anti-Pause Logic: Agar video stuck ho jaye toh reset karega
+            player.addEventListener('error', () => { window.location.reload(); });
+            
         } catch (e) {
             console.error("Load Error:", e);
+            if (e.code == 1001) { // Agar network error ho toh reload
+                 setTimeout(() => { window.location.reload(); }, 2000);
+            }
         }
     }
 
