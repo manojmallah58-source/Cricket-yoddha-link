@@ -1,4 +1,4 @@
-</body><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -15,34 +15,29 @@
             height: 100vh !important; 
         }
 
-        /* Video ko puri screen par fit karne ke liye */
         video { 
             width: 100% !important; 
             height: 100% !important; 
-            object-fit: contain; /* Ya 'cover' agar aapko black bars nahi chahiye */
+            object-fit: contain; 
             background: #000; 
         }
 
-        /* Bottom Controls setup as per your image */
+        /* --- SCREENSHOT MATCHING UI --- */
         .shaka-bottom-controls {
             display: flex;
             align-items: center;
-            padding: 0 10px 5px 10px !important; /* Mobile touch friendly padding */
-            height: 55px;
+            padding: 0 15px !important;
+            height: 50px;
         }
 
-        /* Seekbar Mobile optimization */
-        .shaka-range-container { bottom: 50px !important; width: 95% !important; left: 2.5% !important; }
-        .shaka-volume-bar { width: 60px !important; }
+        /* Seekbar position */
+        .shaka-range-container { bottom: 45px !important; }
 
         /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important; visibility: visible !important;
         }
-
-        /* Quality/Lang buttons size for mobile */
-        .shaka-bottom-controls button { font-size: 14px !important; }
     </style>
 </head>
 <body>
@@ -58,6 +53,7 @@
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
+        // UI configuration ko simple rakha hai taaki buttons kharab na ho
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
             'controlPanelElements': [
@@ -66,30 +62,24 @@
                 'mute',
                 'volume',
                 'spacer',
-                'quality',
-                'language',
-                'overflow_menu'
+                'quality',      // Gear icon
+                'language',     // Globe icon
+                'overflow_menu' // Three dots
             ]
         });
 
-        // Fast Loading & Low Latency Configuration
+        // Fast Loading Configuration
         player.configure({
             streaming: {
-                bufferingGoal: 1,           // Sirf 1 second data buffer karega start hone se pehle (Super Fast)
-                rebufferingGoal: 0.5,       // Re-buffer fast karega
+                bufferingGoal: 1, 
+                rebufferingGoal: 0.5,
                 lowLatencyMode: true,
-                autoLowLatencyMode: true,
-                infiniteAds: false,
-                jumpOnHung: true,
-                stallThreshold: 1
+                jumpOnHung: true
             },
-            manifest: { 
-                dash: { ignoreMinBufferTime: true },
-                retryParameters: { timeout: 2000, maxAttempts: 5 } // Fast retry if network fails
-            }
+            manifest: { dash: { ignoreMinBufferTime: true } }
         });
 
-        // URL Parsing
+        // URL Parsing logic
         const fullUrl = window.location.href;
         let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
         
@@ -104,7 +94,6 @@
 
         if (!streamUrl) return;
 
-        // DRM Setup
         if (kid && key) {
             player.configure({
                 drm: { clearKeys: { [kid]: key } }
@@ -119,18 +108,14 @@
         });
 
         try {
-            // Player Load start
             await player.load(streamUrl);
-            video.muted = false; // Auto-unmute try karega agar browser allow kare
             await video.play();
         } catch (e) {
-            console.error("Load Error:", e);
+            console.error("Error loading stream:", e);
         }
     }
 
     document.addEventListener('shaka-ui-loaded', initPlayer);
 </script>
 </body>
-</html>
-
 </html>
