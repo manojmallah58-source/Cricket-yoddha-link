@@ -7,37 +7,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        /* Full Screen Mobile Look */
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-        
-        .shaka-video-container { 
-            width: 100vw !important; 
-            height: 100vh !important; 
-        }
-
-        video { 
-            width: 100% !important; 
-            height: 100% !important; 
-            object-fit: contain; 
-            background: #000; 
-        }
-
-        /* --- SCREENSHOT MATCHING UI --- */
-        .shaka-bottom-controls {
-            display: flex;
-            align-items: center;
-            padding: 0 15px !important;
-            height: 50px;
-        }
-
-        /* Seekbar position */
+        .shaka-video-container { width: 100vw !important; height: 100vh !important; }
+        video { width: 100% !important; height: 100% !important; object-fit: contain; background: #000; }
+        .shaka-bottom-controls { display: flex; align-items: center; padding: 0 15px !important; height: 50px; }
         .shaka-range-container { bottom: 45px !important; }
-
-        /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
-        .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
-            opacity: 1 !important; visibility: visible !important;
-        }
+        .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container { opacity: 1 !important; visibility: visible !important; }
     </style>
 </head>
 <body>
@@ -49,50 +25,45 @@
 <script>
     async function initPlayer() {
         shaka.polyfill.installAll();
+        if (!shaka.Player.isBrowserSupported()) { return; }
+
         const video = document.getElementById('video');
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
-        // UI configuration ko simple rakha hai taaki buttons kharab na ho
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
-            'controlPanelElements': [
-                'play_pause',
-                'time_and_duration',
-                'mute',
-                'volume',
-                'spacer',
-                'quality',      // Gear icon
-                'language',     // Globe icon
-                'overflow_menu' // Three dots
-            ]
+            'controlPanelElements': ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'quality', 'language', 'overflow_menu']
         });
 
-        // Fast Loading Configuration
+        // Fast Load Config
         player.configure({
-            streaming: {
-                bufferingGoal: 1, 
-                rebufferingGoal: 0.5,
-                lowLatencyMode: true,
-                jumpOnHung: true
-            },
+            streaming: { bufferingGoal: 2, rebufferingGoal: 1, lowLatencyMode: true },
             manifest: { dash: { ignoreMinBufferTime: true } }
         });
 
-        // URL Parsing logic
-        const fullUrl = window.location.href;
-        let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
-        
-        let kid = "", key = "";
-        if (fullUrl.includes("drmLicense=")) {
-            const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
-            kid = keys[0]; key = keys[1];
-        } else {
-            const params = new URLSearchParams(window.location.search);
-            kid = params.get('keyId'); key = params.get('key');
+        // --- FIXED URL & KEY LOGIC ---
+        const params = new URLSearchParams(window.location.search);
+        let streamUrl = params.get('url');
+        let kid = params.get('keyId');
+        let key = params.get('key');
+
+        // Agar URL search params se nahi mila, toh aapka purana logic
+        if (!streamUrl) {
+            const fullUrl = window.location.href;
+            streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
+            if (fullUrl.includes("drmLicense=")) {
+                const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
+                kid = keys[0]; key = keys[1];
+            }
         }
 
-        if (!streamUrl) return;
+        // --- STATIC FALLBACK (Agar link na mile toh ye chalega) ---
+        if (!streamUrl) {
+            streamUrl = "https://qw.live.pv-cdn.net/OTTB/lhr-nitro/live/clients/dash/enc/fb6jy4pxts/out/v1/f8fa17f087564f51aa4d5c700be43ec4/cenc.mpd";
+            kid = "f288380ca4cef9ad3f27a92a08e9bb8b";
+            key = "9f18d26291d9230833501f7f822f6875";
+        }
 
         if (kid && key) {
             player.configure({
@@ -109,9 +80,9 @@
 
         try {
             await player.load(streamUrl);
-            await video.play();
+            console.log("Match Loaded!");
         } catch (e) {
-            console.error("Error loading stream:", e);
+            console.error("Error code", e.code, "object", e);
         }
     }
 
