@@ -2,30 +2,22 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cricket Yoddha - Mobile Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cricket Yoddha - Custom UI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        /* Full Screen Mobile Look */
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
-        
-        .shaka-video-container { 
-            width: 100vw !important; 
-            height: 100vh !important; 
+        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        .shaka-video-container { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; background: #000; }
+
+        /* Screenshot Matching UI */
+        .shaka-bottom-controls {
+            display: flex;
+            align-items: center;
+            padding: 0 15px !important;
         }
 
-        video { 
-            width: 100% !important; 
-            height: 100% !important; 
-            object-fit: contain; 
-            background: #000; 
-        }
-
-        /* Seekbar aur controls ko mobile friendly banana */
-        .shaka-range-container { bottom: 50px !important; }
-        .shaka-bottom-controls { padding: 0 10px !important; }
-        
         /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
@@ -35,85 +27,55 @@
 </head>
 <body>
 
-<div class="shaka-video-container" data-shaka-player id="videoContainer">
-    <video autoplay playsinline id="video"></video>
+<div class="shaka-video-container youtube-theme" data-shaka-player>
+    <video autoplay muted playsinline id="video"></video>
 </div>
 
 <script>
     async function initPlayer() {
         shaka.polyfill.installAll();
-        
-        if (!shaka.Player.isBrowserSupported()) {
-            console.error('Browser not supported!');
-            return;
-        }
-
         const video = document.getElementById('video');
-        const container = document.getElementById('videoContainer');
         const player = new shaka.Player(video);
+        const container = document.querySelector('.shaka-video-container');
         
-        // UI Configuration - Fullscreen button add kiya aur dots hataye
+        // Screenshot ke mutabik buttons
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
             'controlPanelElements': [
-                'play_pause',
-                'time_and_duration',
-                'spacer',
-                'mute',
-                'quality',      // Gear icon
-                'fullscreen'    // Fullscreen button
-            ],
-            'doubleClickForFullscreen': true
+                'play_pause',         // Play/Pause icon
+                'time_and_duration',    // 0:00 time
+                'mute',               // Speaker icon
+                'volume',             // Volume slider line
+                'spacer',             // Isse settings button right side chala jayega
+                'quality'             // Gear icon (Settings)
+            ]
         });
 
-        // Auto-Rotate Logic: Fullscreen hone par horizontal kar dega
-        video.addEventListener('fullscreenchange', () => {
-            if (document.fullscreenElement) {
-                if (screen.orientation && screen.orientation.lock) {
-                    screen.orientation.lock('landscape').catch(() => {
-                        console.log("Orientation lock not supported on this device.");
-                    });
-                }
-            }
-        });
-
-        // Fast Loading Configuration
-        player.configure({
-            streaming: {
-                bufferingGoal: 2, 
-                rebufferingGoal: 1,
-                lowLatencyMode: true,
-                jumpOnHung: true
-            },
-            manifest: { dash: { ignoreMinBufferTime: true } }
-        });
-
-        // URL & DRM Parsing logic
-        const params = new URLSearchParams(window.location.search);
-        let streamUrl = params.get('url');
-        let kid = params.get('keyId');
-        let key = params.get('key');
-
-        // Agar URL mein direct params hain (purana logic support)
-        if (!streamUrl) {
-            const fullUrl = window.location.href;
-            streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
-            if (fullUrl.includes("drmLicense=")) {
-                const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
-                kid = keys[0]; key = keys[1];
-            }
+        const fullUrl = window.location.href;
+        let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
+        
+        let kid = "", key = "";
+        if (fullUrl.includes("drmLicense=")) {
+            const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
+            kid = keys[0]; key = keys[1];
+        } else {
+            const params = new URLSearchParams(window.location.search);
+            kid = params.get('keyId'); key = params.get('key');
         }
 
         if (!streamUrl) return;
 
-        // DRM Setup
-        if (kid && key) {
-            player.configure({
-                drm: { clearKeys: { [kid]: key } }
-            });
-        }
+        player.configure({
+            drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
+            streaming: {
+                bufferingGoal: 4,
+                rebufferingGoal: 2,
+                lowLatencyMode: true,
+                stallThreshold: 1,
+                jumpOnHung: true
+            }
+        });
 
-        // Network Filters
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
@@ -123,9 +85,8 @@
 
         try {
             await player.load(streamUrl);
-            console.log("Stream Loaded Successfully");
         } catch (e) {
-            console.error("Error loading stream:", e);
+            console.error("Load Error", e);
         }
     }
 
