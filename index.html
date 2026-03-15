@@ -1,38 +1,48 @@
-<!DOCTYPE html>
+</body><!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Custom UI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cricket Yoddha - Mobile Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; background: #000; }
+        /* Full Screen Mobile Look */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+        
+        .shaka-video-container { 
+            width: 100vw !important; 
+            height: 100vh !important; 
+        }
 
-        /* --- SCREENSHOT MATCHING UI --- */
+        /* Video ko puri screen par fit karne ke liye */
+        video { 
+            width: 100% !important; 
+            height: 100% !important; 
+            object-fit: contain; /* Ya 'cover' agar aapko black bars nahi chahiye */
+            background: #000; 
+        }
+
+        /* Bottom Controls setup as per your image */
         .shaka-bottom-controls {
             display: flex;
             align-items: center;
-            padding: 0 15px !important;
-            height: 50px;
+            padding: 0 10px 5px 10px !important; /* Mobile touch friendly padding */
+            height: 55px;
         }
 
-        /* Seekbar (Niche wali line) */
-        .shaka-range-container { bottom: 45px !important; }
-
-        /* Buttons ko image jaisa spacing dene ke liye */
-        .shaka-bottom-controls button { margin: 0 5px !important; outline: none !important; }
-        
-        /* Volume slider ko thoda lamba aur image jaisa dikhane ke liye */
-        .shaka-volume-bar { width: 80px !important; }
+        /* Seekbar Mobile optimization */
+        .shaka-range-container { bottom: 50px !important; width: 95% !important; left: 2.5% !important; }
+        .shaka-volume-bar { width: 60px !important; }
 
         /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important; visibility: visible !important;
         }
+
+        /* Quality/Lang buttons size for mobile */
+        .shaka-bottom-controls button { font-size: 14px !important; }
     </style>
 </head>
 <body>
@@ -51,18 +61,35 @@
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
             'controlPanelElements': [
-                'play_pause',         // Play/Pause
-                'time_and_duration',    // 0:00
-                'mute',               // Speaker Icon
-                'volume',             // Volume Slider Line
-                'spacer',             // Beech ka khali gap
-                'quality',            // Gear Icon (Settings)
-                'language',           // Globe Icon (Language)
-                'overflow_menu'       // Three Dots (More)
+                'play_pause',
+                'time_and_duration',
+                'mute',
+                'volume',
+                'spacer',
+                'quality',
+                'language',
+                'overflow_menu'
             ]
         });
 
-        // --- URL Parsing Logic (Wahi purana logic) ---
+        // Fast Loading & Low Latency Configuration
+        player.configure({
+            streaming: {
+                bufferingGoal: 1,           // Sirf 1 second data buffer karega start hone se pehle (Super Fast)
+                rebufferingGoal: 0.5,       // Re-buffer fast karega
+                lowLatencyMode: true,
+                autoLowLatencyMode: true,
+                infiniteAds: false,
+                jumpOnHung: true,
+                stallThreshold: 1
+            },
+            manifest: { 
+                dash: { ignoreMinBufferTime: true },
+                retryParameters: { timeout: 2000, maxAttempts: 5 } // Fast retry if network fails
+            }
+        });
+
+        // URL Parsing
         const fullUrl = window.location.href;
         let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
         
@@ -77,17 +104,12 @@
 
         if (!streamUrl) return;
 
-        player.configure({
-            drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
-            streaming: {
-                bufferingGoal: 4,
-                rebufferingGoal: 2,
-                lowLatencyMode: true,
-                stallThreshold: 1,
-                jumpOnHung: true
-            },
-            manifest: { dash: { ignoreMinBufferTime: true } }
-        });
+        // DRM Setup
+        if (kid && key) {
+            player.configure({
+                drm: { clearKeys: { [kid]: key } }
+            });
+        }
 
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
@@ -97,14 +119,18 @@
         });
 
         try {
+            // Player Load start
             await player.load(streamUrl);
+            video.muted = false; // Auto-unmute try karega agar browser allow kare
             await video.play();
         } catch (e) {
-            console.error("Error loading stream:", e);
+            console.error("Load Error:", e);
         }
     }
 
     document.addEventListener('shaka-ui-loaded', initPlayer);
 </script>
 </body>
+</html>
+
 </html>
