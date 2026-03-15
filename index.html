@@ -3,32 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Redirecting</title>
+    <title>Universal Player</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f4f4; }
-        .loader { color: #e63946; font-weight: bold; font-size: 24px; }
+        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; }
+        .shaka-video-container { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .manual-play-button { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0, 0, 0, 0.8); color: white; padding: 20px 30px; border-radius: 8px; cursor: pointer; font-size: 18px; z-index: 2000; border: 2px solid #ff0000; display: none; }
+        #channelTitle { position: absolute; left: 10px; top: 10px; color: #fff; font-size: 14px; z-index: 1500; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div class="loader">
-        <p>Aapko redirect kiya ja raha hai...</p>
-        <p>Please wait 2 seconds.</p>
-    </div>
+<div class="shaka-video-container youtube-theme" data-shaka-player>
+    <video autoplay muted playsinline id="video"></video>
+    <div id="channelTitle"></div>
+    <div class="manual-play-button" id="manualPlayButton">▶ Click to Play</div>
+</div>
 
-    <script>
-        // URL se data nikalne ka logic
-        const params = new URLSearchParams(window.location.search);
-        const destination = params.get('url'); 
+<script>
+    async function initPlayer() {
+        shaka.polyfill.installAll();
+        if (!shaka.Player.isBrowserSupported()) return;
 
-        if (destination) {
-            setTimeout(() => {
-                // Sahi URL format check karke redirect karega
-                window.location.href = destination.startsWith('http') ? destination : 'https://' + destination;
-            }, 2000);
-        } else {
-            document.body.innerHTML = "<h1>URL Parameter missing!</h1><p>Link mein '?url=https://google.com' jaisa format use karein.</p>";
+        const video = document.getElementById('video');
+        const player = new shaka.Player(video);
+        const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
+        
+        // Parsing logic for both formats
+        const fullUrl = window.location.href;
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        let streamUrl = urlParams.get('url');
+        let finalKeyId = urlParams.get('keyId');
+        let finalKey = urlParams.get('key');
+        let cookieHeader = urlParams.get('cookie') || '';
+        document.getElementById('channelTitle').textContent = urlParams.get('name') || 'Live Stream';
+
+        // Naye format ke liye check (|drmLicense=...)
+        if (fullUrl.includes('|drmLicense=')) {
+            const parts = fullUrl.split('|drmLicense=')[1].split('&')[0];
+            const [kId, k] = parts.split(':');
+            finalKeyId = kId;
+            finalKey = k;
+            // Link ko clean karo takki shaka player confuse na ho
+            streamUrl = streamUrl.split('|')[0]; 
         }
-    </script>
+
+        if (!streamUrl) return;
+
+        // DRM Configuration
+        if (finalKeyId && finalKey) {
+            player.configure({
+                drm: { clearKeys: { [finalKeyId]: finalKey } }
+            });
+        }
+
+        // Networking Filter (Headers for Jio & Others)
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            if (streamUrl.includes('jio')) {
+                request.headers['Referer'] = 'https://www.jiotv.com/';
+                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
+            }
+            if (cookieHeader) {
+                request.headers['Cookie'] = cookieHeader;
+                if (!request.uris[0].includes('__hdnea__=')) {
+                    const sep = request.uris[0].includes('?') ? '&' : '?';
+                    request.uris[0] += sep + cookieHeader;
+                }
+            }
+        });
+
+        // Player UI and Settings
+        ui.configure({ 'controlPanelElements': ['play_pause', 'mute', 'volume', 'quality', 'fullscreen'] });
+        player.configure({ streaming: { lowLatencyMode: true, rebufferingGoal: 2 } });
+
+        try {
+            await player.load(streamUrl);
+            // Autoplay logic
+            try {
+                await video.play();
+            } catch (e) {
+                document.getElementById('manualPlayButton').style.display = 'block';
+            }
+        } catch (e) {
+            console.error('Load Error', e);
+        }
+
+        document.getElementById('manualPlayButton').addEventListener('click', () => {
+            video.play();
+            document.getElementById('manualPlayButton').style.display = 'none';
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', initPlayer);
+</script>
 </body>
 </html>
