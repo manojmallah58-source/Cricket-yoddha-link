@@ -6,79 +6,115 @@
     <title>Cricket Yoddha Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
+    
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
-        .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; }
+        body { margin: 0; padding: 0; background: #000; height: 100vh; display: flex; justify-content: center; align-items: center; }
+        
+        /* Container settings */
+        .shaka-video-container { width: 100%; height: 100%; background-color: #000; }
+        video { width: 100%; height: 100%; object-fit: contain; }
+
+        /* Bottom Controls Bar Styling */
+        .shaka-controls-container {
+            background: linear-gradient(transparent, rgba(0,0,0,0.8)) !important;
+        }
+
+        .shaka-bottom-controls {
+            display: flex;
+            align-items: center;
+            padding: 0 10px !important;
+        }
+
+        /* Seekbar (Neeche ki line) ko stylish banane ke liye */
+        .shaka-range-container { margin: 0 5px !important; }
+
+        /* Logo and Title */
+        #channelTitle {
+            position: absolute;
+            left: 15px;
+            top: 15px;
+            color: white;
+            background: rgba(0,0,0,0.5);
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 10;
+            font-family: sans-serif;
+        }
     </style>
 </head>
 <body>
 
-<div class="shaka-video-container youtube-theme" data-shaka-player>
+<div class="shaka-video-container youtube-theme" data-shaka-player id="videoContainer">
     <video autoplay muted playsinline id="video"></video>
+    <div id="channelTitle">Live Stream</div>
 </div>
 
 <script>
     async function initPlayer() {
         shaka.polyfill.installAll();
         const video = document.getElementById('video');
+        const videoContainer = document.getElementById('videoContainer');
         const player = new shaka.Player(video);
-        const container = document.querySelector('.shaka-video-container');
-        const ui = new shaka.ui.Overlay(player, container, video);
+        const ui = new shaka.ui.Overlay(player, videoContainer, video);
 
-        // --- URL SE DATA NIKALNE KA NAYA TARIKA ---
+        // --- UI Configuration (Saare buttons ek line mein) ---
+        const config = {
+            'controlPanelElements': [
+                'play_pause',      // Play button
+                'time_and_duration', // Time
+                'spacer',          // Beech ka space
+                'mute',            // Mute/Unmute
+                'volume',          // Volume slider
+                'quality',         // Settings/Quality
+                'fullscreen',      // Fullscreen
+                'overflow_menu'    // Extra options
+            ],
+            'addLanguageControls': true,
+            'castReceiverAppId': '7.1.5',
+            'clearBufferOnQualityChange': true
+        };
+        ui.configure(config);
+
+        // URL Parsing logic
         const fullUrl = window.location.href;
-        
-        // 1. Stream URL nikalo
         let streamUrl = "";
+        let kid = "", key = "";
+
         if (fullUrl.includes("url=")) {
             streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
         }
 
-        // 2. DRM Keys nikalo (PV-CDN format ke liye)
-        let kid = "", key = "";
+        // DRM Parse (PV-CDN and others)
         if (fullUrl.includes("drmLicense=")) {
             const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
             const keys = drmData.split(":");
             kid = keys[0];
             key = keys[1];
-        } else {
-            // Normal format ke liye
-            const params = new URLSearchParams(window.location.search);
-            kid = params.get('keyId');
-            key = params.get('key');
         }
 
-        if (!streamUrl) return;
-
-        // DRM Configuration
         if (kid && key) {
             player.configure({
-                drm: {
-                    clearKeys: { [kid]: key }
-                }
+                drm: { clearKeys: { [kid]: key } }
             });
         }
 
-        // Networking Engine (Headers fix)
+        // Networking Engine
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            // Sabhi DASH streams ke liye common headers
-            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-            
             if (streamUrl.includes('jio')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
+                request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13)";
             }
         });
 
         try {
             await player.load(streamUrl);
-            console.log("Success!");
-        } catch (error) {
-            console.error("Error Code:", error.code, "Data:", error.data);
+        } catch (e) {
+            console.error("Error loading stream", e);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', initPlayer);
+    document.addEventListener('shaka-ui-loaded', initPlayer);
 </script>
 </body>
 </html>
