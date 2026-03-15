@@ -3,94 +3,92 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Custom UI</title>
+    <title>Advanced Shaka Player</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
+    
     <style>
-        body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
+        body { margin: 0; padding: 0; background-color: #000; display: flex; justify-content: center; align-items: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; background: #000; }
-
-        /* Screenshot Matching UI */
-        .shaka-bottom-controls {
-            display: flex;
-            align-items: center;
-            padding: 0 15px !important;
-        }
-
-        /* Spinner fix */
-        .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
-        .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
-            opacity: 1 !important; visibility: visible !important;
+        video { width: 100%; height: 100%; object-fit: contain; }
+        .manual-play-button {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.9); color: white; padding: 15px 25px;
+            border-radius: 50px; cursor: pointer; font-weight: bold; z-index: 2000; display: none;
         }
     </style>
 </head>
 <body>
 
-<div class="shaka-video-container youtube-theme" data-shaka-player>
-    <video autoplay muted playsinline id="video"></video>
+<div class="shaka-video-container" data-shaka-player-container>
+    <video autoplay id="video" data-shaka-player poster="https://blogger.googleusercontent.com/img/a/AVvXsEiGqaZeRBZ6Y7yV5ZYSRiNRhBa5q9_EMx7R5TJcHd3XJwwHh2YhNOGt76Y4vEcUIjvIaA7W-Tw1RyMLP-4WZwVHA4mk18zwXl7HdSL5WabprIasDOWJO7jpL0zTQB4p_y7X0Rv0xwe-cJ-GvxofAgeRp2FIiNgB90n_b8Cqw0sAaZqVhJg_fi9UyfSO8KY"></video>
+    <div class="manual-play-button" id="manualPlayButton">CLICK TO PLAY</div>
 </div>
 
 <script>
     async function initPlayer() {
         shaka.polyfill.installAll();
-        const video = document.getElementById('video');
-        const player = new shaka.Player(video);
-        const container = document.querySelector('.shaka-video-container');
-        
-        // Screenshot ke mutabik buttons
-        const ui = new shaka.ui.Overlay(player, container, video);
-        ui.configure({
-            'controlPanelElements': [
-                'play_pause',         // Play/Pause icon
-                'time_and_duration',    // 0:00 time
-                'mute',               // Speaker icon
-                'volume',             // Volume slider line
-                'spacer',             // Isse settings button right side chala jayega
-                'quality'             // Gear icon (Settings)
-            ]
-        });
+        if (!shaka.Player.isBrowserSupported()) return;
 
-        const fullUrl = window.location.href;
-        let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
-        
-        let kid = "", key = "";
-        if (fullUrl.includes("drmLicense=")) {
-            const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
-            kid = keys[0]; key = keys[1];
-        } else {
-            const params = new URLSearchParams(window.location.search);
-            kid = params.get('keyId'); key = params.get('key');
+        const video = document.getElementById('video');
+        const container = document.querySelector('.shaka-video-container');
+        const player = new shaka.Player(video);
+        const ui = new shaka.ui.Overlay(player, container, video);
+
+        // 1. URL Parsing Logic
+        const fullUrl = window.location.search.split('url=')[1];
+        if (!fullUrl) return;
+
+        // Deciding if it's a piped URL or standard params
+        let manifestUri = decodeURIComponent(fullUrl.split('|')[0]);
+        let keyId = "", key = "";
+
+        if (fullUrl.includes('|drmLicense=')) {
+            const licensePart = fullUrl.split('|drmLicense=')[1];
+            [keyId, key] = licensePart.split(':');
         }
 
-        if (!streamUrl) return;
+        // 2. DRM Config
+        if (keyId && key) {
+            player.configure({
+                drm: {
+                    clearKeys: { [keyId]: key }
+                }
+            });
+        }
+
+        // 3. Network Filters (JioTV/AIV Style)
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
+            request.headers['Referer'] = 'https://www.jiotv.com/';
+        });
 
         player.configure({
-            drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 4,
-                rebufferingGoal: 2,
                 lowLatencyMode: true,
-                stallThreshold: 1,
-                jumpOnHung: true
+                jumpLargeGaps: true
             }
         });
 
-        player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
-                request.headers['Referer'] = 'https://www.jiotv.com/';
-                request.headers['Origin'] = 'https://www.jiotv.com';
-            }
-        });
-
+        // 4. Load and Autoplay
+        const manualBtn = document.getElementById('manualPlayButton');
         try {
-            await player.load(streamUrl);
+            await player.load(manifestUri);
+            await video.play().catch(() => {
+                manualBtn.style.display = 'block';
+            });
         } catch (e) {
             console.error("Load Error", e);
         }
+
+        manualBtn.addEventListener('click', () => {
+            video.play();
+            manualBtn.style.display = 'none';
+        });
     }
 
     document.addEventListener('shaka-ui-loaded', initPlayer);
+    document.addEventListener('DOMContentLoaded', initPlayer);
 </script>
 </body>
 </html>
