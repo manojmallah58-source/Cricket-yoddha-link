@@ -22,10 +22,8 @@
 </head>
 <body>
 
-<div class="shaka-video-container youtube-theme" data-shaka-player-container>
-    <video autoplay muted playsinline id="video" data-shaka-player
-           poster="https://blogger.googleusercontent.com/img/a/AVvXsEiGqaZeRBZ6Y7yV5ZYSRiNRhBa5q9_EMx7R5TJcHd3XJwwHh2YhNOGt76Y4vEcUIjvIaA7W-Tw1RyMLP-4WZwVHA4mk18zwXl7HdSL5WabprIasDOWJO7jpL0zTQB4p_y7X0Rv0xwe-cJ-GvxofAgeRp2FIiNgB90n_b8Cqw0sAaZqVhJg_fi9UyfSO8KY">
-    </video>
+<div class="shaka-video-container" data-shaka-player-container>
+    <video autoplay muted playsinline id="video" data-shaka-player poster="https://blogger.googleusercontent.com/img/a/AVvXsEiGqaZeRBZ6Y7yV5ZYSRiNRhBa5q9_EMx7R5TJcHd3XJwwHh2YhNOGt76Y4vEcUIjvIaA7W-Tw1RyMLP-4WZwVHA4mk18zwXl7HdSL5WabprIasDOWJO7jpL0zTQB4p_y7X0Rv0xwe-cJ-GvxofAgeRp2FIiNgB90n_b8Cqw0sAaZqVhJg_fi9UyfSO8KY"></video>
     <div id="channelTitle"></div>
     <div class="manual-play-button" id="manualPlayButton">▶ Click to Play</div>
 </div>
@@ -40,30 +38,36 @@
         const player = new shaka.Player(video);
         const ui = new shaka.ui.Overlay(player, container, video);
 
-        // --- URL & PARAMS LOGIC ---
-        const urlParams = new URLSearchParams(window.location.search);
-        let rawUrl = urlParams.get('url');
-        const channelName = urlParams.get('name') || '';
-        let cookieHeader = urlParams.get('cookie') || '';
-        document.getElementById('channelTitle').textContent = channelName;
-
+        // --- HARDCORE URL PARSING (Special for Pipe '|' format) ---
+        const fullLocation = window.location.href;
         let manifestUri = '';
-        let keyId = urlParams.get('keyId');
-        let key = urlParams.get('key');
+        let keyId = '';
+        let key = '';
 
-        // Piped URL Check (e.g. url|drmLicense=ID:KEY)
-        if (rawUrl && rawUrl.includes('|')) {
-            const parts = rawUrl.split('|');
-            manifestUri = parts[0];
-            const drmPart = parts.find(p => p.includes('drmLicense='));
-            if (drmPart) {
-                const licenseKeys = drmPart.split('drmLicense=')[1].split(':');
-                keyId = licenseKeys[0];
-                key = licenseKeys[1];
+        if (fullLocation.includes('url=')) {
+            // Extract everything after 'url='
+            let queryPart = fullLocation.split('url=')[1];
+            
+            if (queryPart.includes('|')) {
+                const parts = queryPart.split('|');
+                manifestUri = decodeURIComponent(parts[0]);
+                
+                // License extraction logic
+                const drmPart = parts.find(p => p.includes('drmLicense='));
+                if (drmPart) {
+                    const keys = drmPart.split('drmLicense=')[1].split(':');
+                    keyId = keys[0];
+                    key = keys[1];
+                }
+            } else {
+                manifestUri = decodeURIComponent(queryPart.split('&')[0]);
             }
-        } else {
-            manifestUri = rawUrl;
         }
+
+        // Baki ke params (Cookie, Name) normal tarike se
+        const urlParams = new URLSearchParams(window.location.search);
+        const cookieHeader = urlParams.get('cookie') || '';
+        document.getElementById('channelTitle').textContent = urlParams.get('name') || '';
 
         // --- DRM CONFIG ---
         if (keyId && key) {
@@ -72,28 +76,27 @@
             });
         }
 
-        // --- NETWORKING FILTERS (Aapki purani settings) ---
+        // --- HEADERS & COOKIES (Aapki purani settings) ---
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             request.headers['Referer'] = 'https://www.jiotv.com/';
             request.headers['User-Agent'] = "plaYtv/7.1.5 (Linux;Android 13) ExoPlayerLib/2.11.6";
 
             if (cookieHeader) {
                 request.headers['Cookie'] = cookieHeader;
+                // Append cookie to manifest/segment URL if not present
                 if ((type === shaka.net.NetworkingEngine.RequestType.MANIFEST || 
                      type === shaka.net.NetworkingEngine.RequestType.SEGMENT) && 
                     !request.uris[0].includes('__hdnea__=')) {
-                    const separator = request.uris[0].includes('?') ? '&' : '?';
-                    request.uris[0] += separator + cookieHeader;
+                    const sep = request.uris[0].includes('?') ? '&' : '?';
+                    request.uris[0] += sep + cookieHeader;
                 }
             }
         });
 
-        // --- PLAYER OPTIMIZATION ---
         player.configure({
             streaming: {
                 lowLatencyMode: true,
                 jumpLargeGaps: true,
-                bufferingGoal: 15,
                 rebufferingGoal: 2
             }
         });
@@ -102,17 +105,21 @@
 
         try {
             await player.load(manifestUri);
-            // Autoplay Attempt
-            video.play().catch(() => {
-                manualBtn.style.display = 'block';
-            });
+            console.log('Stream loaded successfully');
         } catch (e) {
-            console.error('Error loading stream', e);
+            console.error('Error code:', e.code, 'object:', e);
+            // Agar load fail ho toh button dikhayein shayad user interaction chahiye
+            manualBtn.style.display = 'block';
         }
 
-        manualBtn.addEventListener('click', () => {
+        manualBtn.addEventListener('click', async () => {
             video.muted = false;
-            video.play();
+            await video.play();
+            manualBtn.style.display = 'none';
+        });
+
+        // Video play event to hide button if it starts
+        video.addEventListener('play', () => {
             manualBtn.style.display = 'none';
         });
     });
