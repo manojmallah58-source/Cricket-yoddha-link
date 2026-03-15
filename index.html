@@ -11,20 +11,14 @@
         .shaka-video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; background: #000; }
 
-        /* --- SCREENSHOT MATCHING UI --- */
+        /* Screenshot Matching UI */
         .shaka-bottom-controls {
             display: flex;
             align-items: center;
             padding: 0 15px !important;
-            height: 50px;
         }
 
-        /* Seekbar (Niche wali line) ko set karne ke liye */
-        .shaka-range-container {
-            bottom: 45px !important;
-        }
-
-        /* Spinner fix (taaki faltu mein na ghoome) */
+        /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important; visibility: visible !important;
@@ -44,21 +38,19 @@
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
-        // --- SIRF WAHI BUTTONS JO AAPNE KAHE ---
+        // Screenshot ke mutabik buttons
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
             'controlPanelElements': [
-                'play_pause',      // Play button
-                'time_and_duration', // 0:00 wala time
-                'mute',            // Speaker icon
-                'volume',          // Volume slider line
-                'spacer',          // Beech ka khali space (taaki baaki buttons right mein chale jayein)
-                'quality',         // Settings/Gear icon
-                'fullscreen'       // Extra Full Screen button
+                'play_pause',         // Play/Pause icon
+                'time_and_duration',    // 0:00 time
+                'mute',               // Speaker icon
+                'volume',             // Volume slider line
+                'spacer',             // Isse settings button right side chala jayega
+                'quality'             // Gear icon (Settings)
             ]
         });
 
-        // URL Parsing logic
         const fullUrl = window.location.href;
         let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
         
@@ -81,8 +73,7 @@
                 lowLatencyMode: true,
                 stallThreshold: 1,
                 jumpOnHung: true
-            },
-            manifest: { dash: { ignoreMinBufferTime: true } }
+            }
         });
 
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
@@ -94,9 +85,8 @@
 
         try {
             await player.load(streamUrl);
-            await video.play();
         } catch (e) {
-            console.error("Error loading stream:", e);
+            console.error("Load Error", e);
         }
     }
 
