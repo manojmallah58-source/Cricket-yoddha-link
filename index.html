@@ -1,14 +1,34 @@
-<script>
-    // URL se data nikalne ka logic
-    const params = new URLSearchParams(window.location.search);
-    const destination = params.get('url'); // Ye 'url=' ke baad wali link uthayega
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cricket Yoddha - Redirecting</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f4f4f4; }
+        .loader { color: #e63946; font-weight: bold; font-size: 24px; }
+    </style>
+</head>
+<body>
 
-    if (destination) {
-        // Redirect logic: 2 second baad link par bhej dega
-        setTimeout(() => {
-            window.location.href = destination;
-        }, 2000);
-    } else {
-        document.body.innerHTML = "<h1>Koi link nahi mila!</h1>";
-    }
-</script>
+    <div class="loader">
+        <p>Aapko redirect kiya ja raha hai...</p>
+        <p>Please wait 2 seconds.</p>
+    </div>
+
+    <script>
+        // URL se data nikalne ka logic
+        const params = new URLSearchParams(window.location.search);
+        const destination = params.get('url'); 
+
+        if (destination) {
+            setTimeout(() => {
+                // Sahi URL format check karke redirect karega
+                window.location.href = destination.startsWith('http') ? destination : 'https://' + destination;
+            }, 2000);
+        } else {
+            document.body.innerHTML = "<h1>URL Parameter missing!</h1><p>Link mein '?url=https://google.com' jaisa format use karein.</p>";
+        }
+    </script>
+</body>
+</html>
