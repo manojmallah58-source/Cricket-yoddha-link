@@ -3,25 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Final Stable Fix</title>
+    <title>Cricket Yoddha - YouTube Style</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
         body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; background: #000; }
+        video { width: 100%; height: 100%; }
 
-        /* --- UI & BUTTONS FIX --- */
-        .shaka-bottom-controls { display: flex; align-items: center; }
+        /* --- YOUTUBE UI CUSTOMIZATION --- */
+        .shaka-bottom-controls { 
+            display: flex; 
+            align-items: center; 
+            padding: 0 10px !important;
+        }
         
-        /* Gol-gol circle (Spinner) ko tabhi dikhao jab sach mein zarurat ho */
+        /* Buttons ki spacing aur size */
+        .shaka-controls-button-panel .shaka-current-time { font-size: 14px; margin-left: 10px; }
+        
+        /* Spinner (Gol gol circle) ko sirf extreme case mein dikhane ke liye */
         .shaka-spinner-container {
             opacity: 0 !important;
-            visibility: hidden !important;
+            transition: opacity 0.3s;
         }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important;
-            visibility: visible !important;
+        }
+
+        /* Settings menu ka look change karne ke liye */
+        .shaka-settings-menu {
+            background: rgba(28, 28, 28, 0.9) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
     </style>
 </head>
@@ -38,10 +51,19 @@
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
-        // --- BUTTONS SETUP ---
+        // --- YOUTUBE BUTTONS SETUP ---
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
-            'controlPanelElements': ['play_pause', 'mute', 'quality', 'fullscreen'],
+            'controlPanelElements': [
+                'play_pause', 
+                'mute', 
+                'volume', 
+                'time_and_duration', 
+                'spacer', 
+                'overflow_menu', // Isme Quality aur Speed aayegi YouTube ki tarah
+                'fullscreen'
+            ],
+            'overflowMenuButtons' : ['quality', 'playback_rate'],
             'addCustomButtons': true
         });
 
@@ -60,22 +82,14 @@
 
         if (!streamUrl) return;
 
-        // --- STABILITY & BUFFER FIX ---
         player.configure({
             drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 4,           // 4 second ka buffer load karega (Taki ruke nahi)
-                rebufferingGoal: 2,         // Agar stream rukti hai toh 2 second load hote hi chalu
-                bufferBehind: 0,
+                bufferingGoal: 4, 
+                rebufferingGoal: 2,
                 lowLatencyMode: true,
-                autoLowLatency: true,
-                stallThreshold: 1,          // 1 second se zyada pause nahi rehne dega
-                jumpOnHung: true,           // Atakne par turant aage jump karega
-                inaccuracy: 0.1
-            },
-            manifest: {
-                dash: { ignoreMinBufferTime: true },
-                retryParameters: { maxAttempts: 10, baseDelay: 500 }
+                jumpOnHung: true,
+                stallThreshold: 1
             },
             abr: { enabled: true } 
         });
@@ -90,18 +104,9 @@
 
         try {
             await player.load(streamUrl);
-            video.muted = true;
-            await video.play();
-            console.log("Play Started Successfully!");
-
-            // Anti-Pause Logic: Agar video stuck ho jaye toh reset karega
-            player.addEventListener('error', () => { window.location.reload(); });
-            
+            video.play().catch(() => {});
         } catch (e) {
-            console.error("Load Error:", e);
-            if (e.code == 1001) { // Agar network error ho toh reload
-                 setTimeout(() => { window.location.reload(); }, 2000);
-            }
+            console.error(e);
         }
     }
 
