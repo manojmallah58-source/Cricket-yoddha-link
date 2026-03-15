@@ -3,39 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - YouTube Style</title>
+    <title>Cricket Yoddha - Pro UI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
         body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; background: #000; }
 
-        /* --- YOUTUBE UI CUSTOMIZATION --- */
-        .shaka-bottom-controls { 
-            display: flex; 
-            align-items: center; 
-            padding: 0 10px !important;
+        /* --- UI MATCHING YOUR IMAGE --- */
+        .shaka-bottom-controls {
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
         }
-        
-        /* Buttons ki spacing aur size */
-        .shaka-controls-button-panel .shaka-current-time { font-size: 14px; margin-left: 10px; }
-        
-        /* Spinner (Gol gol circle) ko sirf extreme case mein dikhane ke liye */
-        .shaka-spinner-container {
-            opacity: 0 !important;
-            transition: opacity 0.3s;
-        }
+
+        /* Spinner fix */
+        .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
-            opacity: 1 !important;
+            opacity: 1 !important; visibility: visible !important;
         }
 
-        /* Settings menu ka look change karne ke liye */
-        .shaka-settings-menu {
-            background: rgba(28, 28, 28, 0.9) !important;
-            border-radius: 12px !important;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
+        /* Custom Refresh Button Style */
+        .shaka-refresh-button { font-size: 1.2em; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -45,25 +35,47 @@
 </div>
 
 <script>
+    // --- CUSTOM BUTTON LOGIC ---
+    class RefreshButton extends shaka.ui.Element {
+      constructor(parent, controls) {
+        super(parent, controls);
+        this.button_ = document.createElement('button');
+        this.button_.classList.add('shaka-refresh-button');
+        this.button_.innerHTML = "🔄"; // You can use an icon here
+        this.parent.appendChild(this.button_);
+        this.eventManager.listen(this.button_, 'click', () => {
+          window.location.reload();
+        });
+      }
+    }
+
+    const RefreshButtonFactory = {
+      create: (parent, controls) => new RefreshButton(parent, controls)
+    };
+
+    shaka.ui.Controls.registerElement('refresh', RefreshButtonFactory);
+
     async function initPlayer() {
         shaka.polyfill.installAll();
         const video = document.getElementById('video');
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
         
-        // --- YOUTUBE BUTTONS SETUP ---
+        // --- UI CONFIGURATION ---
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
             'controlPanelElements': [
                 'play_pause', 
+                'time_and_duration', 
                 'mute', 
                 'volume', 
-                'time_and_duration', 
                 'spacer', 
-                'overflow_menu', // Isme Quality aur Speed aayegi YouTube ki tarah
-                'fullscreen'
+                'quality', 
+                'language', 
+                'refresh', // Our custom button
+                'fullscreen', 
+                'overflow_menu'
             ],
-            'overflowMenuButtons' : ['quality', 'playback_rate'],
             'addCustomButtons': true
         });
 
@@ -85,17 +97,16 @@
         player.configure({
             drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 4, 
+                bufferingGoal: 6,
                 rebufferingGoal: 2,
                 lowLatencyMode: true,
-                jumpOnHung: true,
-                stallThreshold: 1
+                stallThreshold: 1,
+                jumpOnHung: true
             },
-            abr: { enabled: true } 
+            manifest: { dash: { ignoreMinBufferTime: true } }
         });
 
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
             if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
                 request.headers['Origin'] = 'https://www.jiotv.com';
@@ -104,9 +115,9 @@
 
         try {
             await player.load(streamUrl);
-            video.play().catch(() => {});
+            await video.play();
         } catch (e) {
-            console.error(e);
+            console.error("Load Error:", e);
         }
     }
 
