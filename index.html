@@ -7,48 +7,94 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
-        .shaka-video-container { width: 100vw !important; height: 100vh !important; }
-        video { width: 100% !important; height: 100% !important; object-fit: contain; background: #000; }
-        .shaka-bottom-controls { display: flex; align-items: center; padding: 0 15px !important; height: 50px; }
-        .shaka-range-container { bottom: 45px !important; }
+        /* Full Screen Mobile Look */
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: sans-serif; }
+        
+        .shaka-video-container { 
+            width: 100vw !important; 
+            height: 100vh !important; 
+        }
+
+        video { 
+            width: 100% !important; 
+            height: 100% !important; 
+            object-fit: contain; 
+            background: #000; 
+        }
+
+        /* Seekbar aur controls ko mobile friendly banana */
+        .shaka-range-container { bottom: 50px !important; }
+        .shaka-bottom-controls { padding: 0 10px !important; }
+        
+        /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
-        .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container { opacity: 1 !important; visibility: visible !important; }
+        .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
+            opacity: 1 !important; visibility: visible !important;
+        }
     </style>
 </head>
 <body>
 
-<div class="shaka-video-container youtube-theme" data-shaka-player>
-    <video autoplay muted playsinline id="video"></video>
+<div class="shaka-video-container" data-shaka-player id="videoContainer">
+    <video autoplay playsinline id="video"></video>
 </div>
 
 <script>
     async function initPlayer() {
         shaka.polyfill.installAll();
-        if (!shaka.Player.isBrowserSupported()) { return; }
+        
+        if (!shaka.Player.isBrowserSupported()) {
+            console.error('Browser not supported!');
+            return;
+        }
 
         const video = document.getElementById('video');
+        const container = document.getElementById('videoContainer');
         const player = new shaka.Player(video);
-        const container = document.querySelector('.shaka-video-container');
         
+        // UI Configuration - Fullscreen button add kiya aur dots hataye
         const ui = new shaka.ui.Overlay(player, container, video);
         ui.configure({
-            'controlPanelElements': ['play_pause', 'time_and_duration', 'mute', 'volume', 'spacer', 'quality', 'language', 'overflow_menu']
+            'controlPanelElements': [
+                'play_pause',
+                'time_and_duration',
+                'spacer',
+                'mute',
+                'quality',      // Gear icon
+                'fullscreen'    // Fullscreen button
+            ],
+            'doubleClickForFullscreen': true
         });
 
-        // Fast Load Config
+        // Auto-Rotate Logic: Fullscreen hone par horizontal kar dega
+        video.addEventListener('fullscreenchange', () => {
+            if (document.fullscreenElement) {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {
+                        console.log("Orientation lock not supported on this device.");
+                    });
+                }
+            }
+        });
+
+        // Fast Loading Configuration
         player.configure({
-            streaming: { bufferingGoal: 2, rebufferingGoal: 1, lowLatencyMode: true },
+            streaming: {
+                bufferingGoal: 2, 
+                rebufferingGoal: 1,
+                lowLatencyMode: true,
+                jumpOnHung: true
+            },
             manifest: { dash: { ignoreMinBufferTime: true } }
         });
 
-        // --- FIXED URL & KEY LOGIC ---
+        // URL & DRM Parsing logic
         const params = new URLSearchParams(window.location.search);
         let streamUrl = params.get('url');
         let kid = params.get('keyId');
         let key = params.get('key');
 
-        // Agar URL search params se nahi mila, toh aapka purana logic
+        // Agar URL mein direct params hain (purana logic support)
         if (!streamUrl) {
             const fullUrl = window.location.href;
             streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
@@ -58,19 +104,16 @@
             }
         }
 
-        // --- STATIC FALLBACK (Agar link na mile toh ye chalega) ---
-        if (!streamUrl) {
-            streamUrl = "https://qw.live.pv-cdn.net/OTTB/lhr-nitro/live/clients/dash/enc/fb6jy4pxts/out/v1/f8fa17f087564f51aa4d5c700be43ec4/cenc.mpd";
-            kid = "f288380ca4cef9ad3f27a92a08e9bb8b";
-            key = "9f18d26291d9230833501f7f822f6875";
-        }
+        if (!streamUrl) return;
 
+        // DRM Setup
         if (kid && key) {
             player.configure({
                 drm: { clearKeys: { [kid]: key } }
             });
         }
 
+        // Network Filters
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
             if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
@@ -80,9 +123,9 @@
 
         try {
             await player.load(streamUrl);
-            console.log("Match Loaded!");
+            console.log("Stream Loaded Successfully");
         } catch (e) {
-            console.error("Error code", e.code, "object", e);
+            console.error("Error loading stream:", e);
         }
     }
 
