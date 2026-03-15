@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Instant Fix</title>
+    <title>Cricket Yoddha - Fixed</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
         body { margin: 0; background: #000; height: 100vh; overflow: hidden; display: flex; justify-content: center; align-items: center; }
         .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; background: #000; }
-        /* Circle spinner ko hide karne ke liye agar stream chal rahi ho */
-        .shaka-spinner-container { display: none !important; } 
+        video { width: 100%; height: 100%; }
+        /* Buffer circle ko force hide karne ke liye jab video load ho jaye */
+        .shaka-buffering-spinner { display: none !important; }
     </style>
 </head>
 <body>
@@ -26,70 +26,65 @@
         const video = document.getElementById('video');
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
+        
+        // UI Configuration
         const ui = new shaka.ui.Overlay(player, container, video);
+        ui.configure({ 'controlPanelElements': ['play_pause', 'mute', 'quality', 'fullscreen'] });
 
-        // URL parsing logic
+        // URL Parsing
         const fullUrl = window.location.href;
-        let streamUrl = "";
-        if (fullUrl.includes("url=")) {
-            streamUrl = fullUrl.split("url=")[1].split("|")[0].split("&")[0];
-        }
-
+        let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
+        
         let kid = "", key = "";
         if (fullUrl.includes("drmLicense=")) {
-            const drmData = fullUrl.split("drmLicense=")[1].split("&")[0];
-            const keys = drmData.split(":");
+            const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
             kid = keys[0]; key = keys[1];
-        } else {
-            const params = new URLSearchParams(window.location.search);
-            kid = params.get('keyId'); key = params.get('key');
         }
 
         if (!streamUrl) return;
 
-        // --- AGGRESSIVE INSTANT PLAY SETTINGS ---
+        // --- AGGRESSIVE FIX FOR INSTANT PLAY ---
         player.configure({
             drm: { clearKeys: (kid && key) ? { [kid]: key } : {} },
             streaming: {
-                bufferingGoal: 0.5,         // Sirf 0.5 sec ka data aate hi play karega
+                bufferingGoal: 1,           // 1 second ka buffer kafi hai
                 rebufferingGoal: 0.5,
-                bufferBehind: 0,
                 lowLatencyMode: true,
                 autoLowLatency: true,
-                forceTransmuxTS: true,      // TS files ko fast convert karne ke liye
-                jumpOnHung: true,
-                ignoreTextStreamFailures: true,
-                alwaysStreamText: false
+                inaccuracy: 0.1,
+                jumpOnHung: true           // Agar wheel ghoome toh aage jump kar jao
             },
-            manifest: {
-                dash: { autoCorrectDrift: true },
-                retryParameters: { maxAttempts: 5, baseDelay: 100, backoffFactor: 1.2 }
-            },
-            abr: {
-                enabled: false,             // Auto quality off karke seedha load karega
-                defaultBandwidthEstimate: 100000 
-            }
+            manifest: { dash: { ignoreMinBufferTime: true } } // DASH ke liye buffering ignore karega
         });
 
+        // Networking Headers
         player.getNetworkingEngine().registerRequestFilter((type, request) => {
-            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-            // Jio/CDN streams ke liye headers
-            if (streamUrl.includes('jio') || streamUrl.includes('bpcdn')) {
+            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36";
+            if (streamUrl.includes('jio')) {
                 request.headers['Referer'] = 'https://www.jiotv.com/';
                 request.headers['Origin'] = 'https://www.jiotv.com';
             }
         });
 
         try {
+            // Video load hone se pehle hi use 'ready' state mein dalna
             await player.load(streamUrl);
-            // Ek baar load hone ke baad turant play command
-            video.muted = true; // Autoplay ensure karne ke liye
-            video.play();
-            console.log("Instant Play Done!");
+            
+            // Force Play Logic
+            video.muted = true; 
+            const playPromise = video.play();
+            
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log("Video Started!");
+                }).catch(error => {
+                    // Agar browser block kare toh user click par chalao
+                    console.log("Autoplay blocked, waiting for click");
+                    window.addEventListener('click', () => { video.play(); }, { once: true });
+                });
+            }
         } catch (e) {
-            console.error("Error:", e.code);
-            // Agar fail ho toh refresh logic
-            setTimeout(() => { window.location.reload(); }, 2000);
+            console.error("Error:", e);
         }
     }
 
