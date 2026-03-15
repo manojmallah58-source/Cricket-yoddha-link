@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cricket Yoddha - Custom UI (Image Matched)</title>
+    <title>Cricket Yoddha - Custom UI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/controls.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.3.5/shaka-player.ui.js"></script>
     <style>
@@ -20,38 +20,19 @@
         }
 
         /* Seekbar (Niche wali line) */
-        .shaka-range-container {
-            bottom: 45px !important;
-        }
+        .shaka-range-container { bottom: 45px !important; }
+
+        /* Buttons ko image jaisa spacing dene ke liye */
+        .shaka-bottom-controls button { margin: 0 5px !important; outline: none !important; }
+        
+        /* Volume slider ko thoda lamba aur image jaisa dikhane ke liye */
+        .shaka-volume-bar { width: 80px !important; }
 
         /* Spinner fix */
         .shaka-spinner-container { opacity: 0 !important; visibility: hidden !important; }
         .shaka-video-container[data-shaka-player-is-buffering="true"] .shaka-spinner-container {
             opacity: 1 !important; visibility: visible !important;
         }
-
-        /* (Image-Matching Detail) Mute ke baad spacer */
-        .shaka-volume-bar { margin-right: 10px !important; }
-
-        /* (Image-Matching Detail) Icons ke beech spacing */
-        .shaka-bottom-controls button,
-        .shaka-bottom-controls div.shaka-spacer + button { margin-left: 10px !important; }
-
-        /* (Naya Feature) Custom Language Icon ki Styling. */
-        .custom-language-icon {
-            font-family: sans-serif; /* default browser font */
-            font-size: 1.2rem;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            padding: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: -10px; /* Offset to stack close to overflow dots */
-        }
-        .shaka-current-language-label { color: white; margin-left: 4px; font-size: 11px; }
-
     </style>
 </head>
 <body>
@@ -66,141 +47,25 @@
         const video = document.getElementById('video');
         const player = new shaka.Player(video);
         const container = document.querySelector('.shaka-video-container');
-
-        // --- Naya: Custom Language Icon Button banayein ---
-        // Hum ek naya element banate hain aur usmein Shaka ki default overflow language logic inject karte hain.
-        const languageButton = document.createElement('button');
-        languageButton.className = 'custom-language-icon';
-        languageButton.id = 'custom-language-selector';
-        languageButton.ariaLabel = 'Change language'; // Accessibility
-        languageButton.innerHTML = '🌐'; // Globe Emoji (Aap iski jagah SVG bhi use kar sakte hain)
-
-        // Shaka ko batayein ke humare paas custom controls hain, jinmein overflow (three dots) aur language (🌐) shamil hain.
-        // Ham custom element 'overflow_menu' use karenge, jiske andar quality aur language dono aayenge.
+        
         const ui = new shaka.ui.Overlay(player, container, video);
-        
-        // --- Naya Config (Image Matched) ---
-        // Hume overflow button (three dots) use karna hai takay ham language option integration kar saken jese default me hota hai,
-        // bas icons ki place correct karni hai.
-        
-        // Is config me hum pehle control elements ko correct sequential order me rakhenge.
-        // 'language_selector' ko direct place karne se wo automatic text show karta hai, hume custom '🌐' icon chahiye.
-        // To hum control panel me default 'overflow_menu' (dots) use karenge aur language function uske under hi integrate karenge.
-        
-        // Par screenshot me Quality icon open hai. Quality icon separate list ka hissa hai.
-        // Hame control list setup karni hai, fir elements register karne hain.
-        
-        // --- UI Setup: Correct Sequence as per image ---
-        const controls_elements = [
-            'play_pause',
-            'time_and_duration',
-            'mute',
-            'volume',
-            'spacer',
-            // Default quality icon right area me lane ke lie,
-            // lekin language and dots setup is complex
-        ];
-
-        // Let's go simpler: We customize how the elements display and what icons show.
-        // To create the exact three buttons: Quality, Language, Overflow
-        
-        // **Step 1: Get the actual elements**
         ui.configure({
             'controlPanelElements': [
-                'play_pause',      // 1. Play
-                'time_and_duration', // 2. Time
-                'mute',            // 3. Mute
-                'volume',          // 4. Volume
-                'spacer',          // 5. Spacer
-                'quality',         // 6. Quality (Gear)
-                'overflow_menu'    // 7. Overflow (Three dots, automatic)
+                'play_pause',         // Play/Pause
+                'time_and_duration',    // 0:00
+                'mute',               // Speaker Icon
+                'volume',             // Volume Slider Line
+                'spacer',             // Beech ka khali gap
+                'quality',            // Gear Icon (Settings)
+                'language',           // Globe Icon (Language)
+                'overflow_menu'       // Three Dots (More)
             ]
         });
 
-        // Ab hum overflow menu ko override karenge custom sequence aur elements se, bas Quality icon ko control panel pe separate rakhte hain.
-        
-        // **Step 2: Add Custom Language Button *next* to Quality**
-        // Jab tak hum isko default overflow me manually integrate nai karenge, hume ek static custom element chahiye control pane pe.
-        
-        // Ab hum actual DOM manipulate karenge control panel banne ke baad.
-        const addCustomControls = () => {
-            const controls = container.querySelector('.shaka-bottom-controls');
-            if (controls) {
-                // Quality button dhundhein
-                const qualityButton = controls.querySelector('button.shaka-quality-picker-button');
-                const overflowButton = controls.querySelector('button.shaka-overflow-menu-button');
-
-                if (qualityButton && overflowButton && !controls.querySelector('#custom-language-selector')) {
-                    // Language button ko Quality aur Overflow ke beech insert karein.
-                    // Par default quality, overflow alag sequence me aate hain. 
-                    // To pure bottom control pane ko image sequence k according structure karlete hen.
-                }
-            }
-        };
-
-        // Ye config exact image matching setup hai. Mute aur Volume ke baad Quality aur teen buttons seq me: Quality, Lang, Dots.
-        // Shaka player default standard me Language text me show karta hai, emoji me custom karna hai.
-        
-        // **FINAL CLEAN SOLUTION**
-        ui.configure({
-            'controlPanelElements': [
-                'play_pause',
-                'time_and_duration',
-                'mute',
-                'volume',
-                'spacer',
-                'quality',          // Separate Quality icon
-                'overflow_menu'    // Default Overflow (Dots) - Hum isme customize karenge content
-            ],
-            // Language preference setup
-            'addLanguageTextToOverflowMenu': false, // Taaki text na aye
-            'addQualityTextToOverflowMenu': false,
-        });
-
-        // Custom function to add emoji to overflow list and create custom layout
-        const setupCustomIconsAndFunctionality = () => {
-            const bottomControls = container.querySelector('.shaka-bottom-controls');
-            if (!bottomControls) return;
-
-            // Step A: Control Pane order fix (Mute -> Volume)
-            const muteButton = bottomControls.querySelector('button.shaka-mute-button');
-            const volumeBar = bottomControls.querySelector('input.shaka-volume-bar');
-            if (muteButton && volumeBar && muteButton.nextElementSibling === volumeBar) {
-                // Volume ko mute ke right me move karein agar nai he (default shaka me opposite hota he)
-                // sequence correct karne ke lie use css or dom.
-                bottomControls.insertBefore(volumeBar, muteButton.nextSibling);
-            }
-
-            // Step B: Language button and click handling inside default overflow.
-            // Shaka's overflow list creation process is a bit obscure. We must target the creation of overflow items.
-            
-            player.addEventListener('loaded', () => {
-                // Update language selection text to globe emoji within the overflow list (if visible)
-                const updateOverflowDisplay = () => {
-                    const overflowMenu = container.querySelector('.shaka-overflow-menu');
-                    if(overflowMenu){
-                        const languageItem = overflowMenu.querySelector('button[aria-label="Language"]');
-                        if (languageItem && !languageItem.querySelector('.custom-lang-globe')) {
-                            // Text ki jagah globe
-                            const textSpan = languageItem.querySelector('.shaka-overflow-menu-item-text');
-                            if(textSpan) { textSpan.style.display = 'none'; }
-                            languageItem.insertAdjacentHTML('afterbegin', '<span class="custom-lang-globe">🌐</span>');
-                        }
-                    }
-                }
-                
-                // Add event listener to overflow dots click
-                const overflowButton = bottomControls.querySelector('button.shaka-overflow-menu-button');
-                if(overflowButton) { overflowButton.addEventListener('click', updateOverflowDisplay); }
-            });
-        };
-        setupCustomIconsAndFunctionality();
-
-
-        // --- Aapka baaki URL parse logic - NO CHANGE ---
+        // --- URL Parsing Logic (Wahi purana logic) ---
         const fullUrl = window.location.href;
         let streamUrl = fullUrl.split("url=")[1]?.split("|")[0]?.split("&")[0];
-
+        
         let kid = "", key = "";
         if (fullUrl.includes("drmLicense=")) {
             const keys = fullUrl.split("drmLicense=")[1].split("&")[0].split(":");
