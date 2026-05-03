@@ -1,183 +1,110 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="hi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
-  <title>CRICKET YODDHA - Elite Streaming</title>
-  
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;800&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
-  
-  <style>
-    :root { --gold: #FFD700; --bg: #000; --card: #0c0c0c; }
-    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
-    body { margin: 0; background: var(--bg); font-family: 'Outfit', sans-serif; color: #fff; padding-bottom: 30px; overflow-x: hidden; }
-
-    header { height: 60px; background: #000; display: flex; align-items: center; justify-content: space-between; padding: 0 15px; border-bottom: 1px solid rgba(255,215,0,0.2); position: sticky; top: 0; z-index: 1000; }
-    .logo { font-family: 'Rajdhani'; font-size: 22px; font-weight: 800; }
-    .logo span { color: var(--gold); }
-
-    #main-stage { width: 100%; transition: 0.8s ease; }
-    .video-box { width: 100%; aspect-ratio: 16/9; background: #000; position: relative; }
-    iframe { width: 100%; height: 100%; border: none; }
-    .locked { filter: blur(40px) brightness(0.2); pointer-events: none; }
-
-    .ticker { background: #0c0c0c; padding: 12px 0; border-bottom: 1px solid rgba(255,215,0,0.1); overflow: hidden; display: flex; align-items: center; }
-    .ticker-text { white-space: nowrap; display: inline-block; animation: scroll 25s linear infinite; color: var(--gold); font-size: 13px; font-weight: 700; text-transform: uppercase; }
-    @keyframes scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-
-    /* --- UPDATED POPUP DESIGN WITH MEDIUM ICON --- */
-    .overlay { 
-      position: fixed; inset: 0; background: rgba(0,0,0,0.92); 
-      z-index: 9999; display: none; align-items: center; justify-content: center; 
-      padding: 20px; backdrop-filter: blur(15px);
-    }
-    .overlay.active { display: flex; animation: fadeIn 0.4s ease; }
-
-    .modal { 
-      width: 100%; max-width: 360px; 
-      background: linear-gradient(145deg, #111, #050505); 
-      border: 2px solid var(--gold); border-radius: 25px; 
-      padding: 30px 20px; text-align: center; 
-      box-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
-    }
-    
-    /* Perfect Round Medium Icon Wrapper */
-    .icon-wrapper {
-      width: 70px; height: 70px; 
-      background: rgba(255, 215, 0, 0.1); 
-      border-radius: 50%; 
-      display: flex; align-items: center; justify-content: center; 
-      margin: 0 auto 20px;
-      border: 1px solid rgba(255, 215, 0, 0.3);
-      box-shadow: 0 0 20px rgba(255, 215, 0, 0.2);
-    }
-    .modal-icon { font-size: 35px; color: var(--gold); }
-
-    .modal h2 { font-family: 'Rajdhani'; font-size: 22px; color: #fff; margin: 0 0 12px; letter-spacing: 1px; text-transform: uppercase; }
-    .modal p { color: #ccc; font-size: 14px; margin: 0 0 25px; line-height: 1.5; font-weight: 400; }
-
-    .btn-join { 
-      display: block; width: 100%; padding: 16px; 
-      background: var(--gold); color: #000; 
-      text-decoration: none; font-weight: 900; border-radius: 12px; 
-      text-transform: uppercase; font-size: 15px; letter-spacing: 0.5px;
-      animation: pulse 2s infinite;
-    }
-    
-    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
-    /* BUTTONS & STATS */
-    .actions { padding: 20px 15px; }
-    .tg-btn { display: flex; align-items: center; justify-content: center; gap: 10px; background: var(--gold); color: #000; padding: 15px; border-radius: 12px; text-decoration: none; font-weight: 800; font-family: 'Rajdhani'; font-size: 18px; margin-bottom: 15px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    .small-btn { background: var(--card); border: 1px solid rgba(255,215,0,0.1); color: #fff; padding: 12px; border-radius: 10px; text-align: center; text-decoration: none; font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 5px; }
-    
-    .stats { background: var(--card); border: 1px solid rgba(255,215,0,0.1); border-radius: 15px; padding: 20px; margin-top: 20px; text-align: center; }
-    .count { font-family: 'Rajdhani'; font-size: 32px; color: var(--gold); font-weight: 800; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHDTV Master Extractor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0b0e14; color: #e2e8f0; font-family: sans-serif; }
+        .card { background: #151921; border: 1px solid #2d333f; border-radius: 12px; }
+        .btn-action { background: #2563eb; transition: 0.3s; }
+        .btn-action:hover { background: #1d4ed8; transform: scale(1.02); }
+        .result-box { background: #090c10; border: 1px solid #3b82f6; color: #60a5fa; font-family: monospace; }
+    </style>
 </head>
-<body>
+<body class="p-4">
 
-  <div class="overlay" id="forcePop">
-    <div class="modal">
-      <div class="icon-wrapper">
-        <i class="material-icons modal-icon">gpp_maybe</i>
-      </div>
-      <h2>AUTHORIZATION REQUIRED</h2>
-      <p>To access <b>Daily Live Cricket Streams</b>, IPL updates, and HD match links, you must join our official Telegram channel. <br><br>Joining is Compulsory to unlock and watch the live match.</p>
-      <a href="https://t.me/+rwZKMV0-L8wyOTll" target="_blank" onclick="verifyAccess()" class="btn-join">JOIN TELEGRAM & UNLOCK</a>
-      <div style="color: #444; font-size: 10px; margin-top: 20px; letter-spacing: 2px;">SECURE VIP GATEWAY v12.0</div>
+    <div class="max-w-2xl mx-auto">
+        <div class="text-center my-6">
+            <h1 class="text-2xl font-bold text-blue-500 uppercase tracking-tighter">DRM Master Extractor</h1>
+            <p class="text-xs text-gray-500 italic">MPD, M3U8 & Clearkey Detector</p>
+        </div>
+
+        <div class="card p-5 mb-6 shadow-xl">
+            <input type="text" id="targetUrl" class="w-full bg-[#0d1117] border border-gray-700 p-4 rounded-lg mb-4 outline-none focus:border-blue-500" placeholder="Paste Live Stream URL here...">
+            
+            <div class="flex items-center gap-2 mb-4">
+                <hr class="flex-grow border-gray-800">
+                <span class="text-[10px] text-gray-600 font-bold">OR</span>
+                <hr class="flex-grow border-gray-800">
+            </div>
+
+            <textarea id="rawContent" rows="4" class="w-full bg-[#0d1117] border border-gray-700 p-3 rounded-lg text-xs font-mono mb-4" placeholder="Paste Page Source (Ctrl+U) here..."></textarea>
+            
+            <button onclick="startDeepScan()" id="scanBtn" class="w-full btn-action py-4 rounded-xl font-bold shadow-lg shadow-blue-900/20">
+                START UNIVERSAL SCAN
+            </button>
+        </div>
+
+        <div id="loader" class="hidden text-center text-blue-400 py-4 animate-pulse text-sm">Scanning for DRM Headers...</div>
+        <div id="displayArea" class="space-y-4"></div>
     </div>
-  </div>
 
-  <header>
-    <div class="logo">CRICKET<span>YODDHA</span></div>
-    <div style="font-size:10px; color:var(--gold); border:1px solid var(--gold); padding:2px 8px; border-radius:4px;">ULTRA HD</div>
-  </header>
+    <script>
+        async function startDeepScan() {
+            const url = document.getElementById('targetUrl').value.trim();
+            const raw = document.getElementById('rawContent').value.trim();
+            const display = document.getElementById('displayArea');
+            const loader = document.getElementById('loader');
+            
+            display.innerHTML = '';
 
-  <div id="main-stage">
-    <div class="video-box">
-      <iframe src="https://joplay.lrl45.workers.dev/1389" allowfullscreen="true" scrolling="no" allow="autoplay; encrypted-media"></iframe>
-    </div>
-    <div class="ticker">
-      <div class="ticker-text">
-        🏏 WANT TO WATCH IPL & ALL CRICKET MATCHES LIVE? 🔗 JOIN OUR TELEGRAM CHANNEL FOR PREMIUM HD LINKS! 🔥 GET INSTANT ACCESS TO EVERY MATCH LINK IN ULTRA HD QUALITY ⚡ JOIN NOW TO NEVER MISS A BALL! 🏏
-      </div>
-    </div>
-  </div>
+            if (raw) {
+                analyze(raw);
+            } else if (url) {
+                loader.classList.remove('hidden');
+                try {
+                    const proxy = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                    const resp = await fetch(proxy);
+                    const data = await resp.json();
+                    analyze(data.contents);
+                } catch (e) {
+                    alert("CORS Error! Please paste source code manually.");
+                } finally {
+                    loader.classList.add('hidden');
+                }
+            } else {
+                alert("Please enter a URL or Source Code!");
+            }
+        }
 
-  <div class="actions">
-    <a href="https://t.me/+rwZKMV0-L8wyOTll" target="_blank" class="tg-btn"><i class="material-icons">send</i> JOIN TELEGRAM</a>
-    <div class="grid">
-      <a href="javascript:location.reload()" class="small-btn"><i class="material-icons" style="font-size:18px;color:gold">refresh</i> REFRESH</a>
-      <a href="javascript:shareLink()" class="small-btn"><i class="material-icons" style="font-size:18px;color:gold">share</i> SHARE</a>
-    </div>
-    <div class="stats">
-      <div style="font-size:11px; color:#555; letter-spacing:1px; margin-bottom:5px;">LIVE SPECTATORS</div>
-      <div class="count" id="live-count">...</div>
-    </div>
-  </div>
+        function analyze(text) {
+            const display = document.getElementById('displayArea');
+            const rules = {
+                'DETECTED .MPD FILE': /(https?:\/\/[^\s"'<>]+\.mpd[^\s"'<>]*)/gi,
+                'CLEARKEY DETECTED (KID:KEY)': /([a-f0-9]{32}:[a-f0-9]{32})/gi,
+                'PSSH HEADER (BASE64)': /pssh["']?\s*[:=]\s*["']([a-zA-Z0-9+/=]{50,})["']|<cenc:pssh>([\s\S]*?)<\/cenc:pssh>/gi,
+                'LICENSE URL': /(https?:\/\/[^\s"'<>]+\/(?:license|wv|drm)[^\s"'<>]*)/gi
+            };
 
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+            let found = false;
+            for (let [title, regex] of Object.entries(rules)) {
+                let matches = [];
+                let m;
+                while ((m = regex.exec(text)) !== null) {
+                    matches.push(m[1] || m[2] || m[0]);
+                }
 
-  <script>
-    // --- WEBSITE NAME SETTINGS ---
-    const DB_NAME = "cricket_yoddha_hindii"; 
+                if (matches.length > 0) {
+                    found = true;
+                    const section = document.createElement('div');
+                    section.className = "card p-4 border-t-2 border-blue-600";
+                    section.innerHTML = `<h3 class="text-blue-400 font-bold text-[10px] mb-3 uppercase tracking-widest">${title}</h3>`;
+                    
+                    [...new Set(matches)].forEach(item => {
+                        section.innerHTML += `
+                            <div class="result-box p-3 rounded mb-2 flex justify-between items-center overflow-hidden">
+                                <span class="text-[11px] truncate mr-4">${item.trim()}</span>
+                                <button onclick="navigator.clipboard.writeText('${item.trim()}'); alert('Copied!')" class="text-blue-500 font-bold text-[10px] hover:text-white">COPY</button>
+                            </div>`;
+                    });
+                    display.appendChild(section);
+                }
+            }
 
-    const CONFIG = {
-      key: "yoddha_daily_access_v12",
-      timeKey: "yoddha_join_time_v12",
-      preview: 60000, // 1 minute
-      expiry: 86400000 // 24 Hours
-    };
-
-    window.onload = () => {
-      const lastJoin = localStorage.getItem(CONFIG.timeKey);
-      const now = new Date().getTime();
-
-      if (lastJoin && (now - lastJoin > CONFIG.expiry)) {
-        localStorage.removeItem(CONFIG.key);
-        localStorage.removeItem(CONFIG.timeKey);
-      }
-
-      if (localStorage.getItem(CONFIG.key) !== 'true') {
-        setTimeout(() => {
-          document.getElementById('main-stage').classList.add('locked');
-          document.getElementById('forcePop').classList.add('active');
-        }, CONFIG.preview);
-      }
-    };
-
-    function verifyAccess() {
-      localStorage.setItem(CONFIG.key, 'true');
-      localStorage.setItem(CONFIG.timeKey, new Date().getTime());
-      document.getElementById('forcePop').classList.remove('active');
-      document.getElementById('main-stage').classList.remove('locked');
-    }
-
-    function shareLink() {
-      if (navigator.share) navigator.share({title:'Cricket Yoddha', url:window.location.href});
-      else alert("Link Copied!");
-    }
-
-    const firebaseConfig = {
-      apiKey: "AIzaSyA-vR50CMDYJVHApJir-6fmgRqhFiqQDU8",
-      authDomain: "my-website-cricket.firebaseapp.com",
-      databaseURL: "https://my-website-cricket-default-rtdb.firebaseio.com",
-      projectId: "my-website-cricket",
-    };
-
-    if(!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const today = new Date().toISOString().slice(0, 10);
-    const ref = db.ref('live_users/' + DB_NAME + '/' + today);
-    ref.transaction(v => (v || 0) + 1);
-    ref.on('value', snap => {
-      document.getElementById('live-count').innerText = (snap.val() || 0).toLocaleString();
-    });
-  </script>
+            if (!found) display.innerHTML = '<p class="text-center text-red-500 text-sm">No DRM details found.</p>';
+        }
+    </script>
 </body>
 </html>
