@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player</title>
+    <title>Prime Player</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
     <style>
-        body, html { margin: 0; padding: 0; background: #000; height: 100vh; overflow: hidden; }
-        .shaka-video-container { width: 100vw; height: 100vh; }
+        body { margin: 0; background: #000; overflow: hidden; }
+        .shaka-video-container { height: 100vh; width: 100vw; }
         video { width: 100%; height: 100%; }
     </style>
 </head>
@@ -24,32 +24,30 @@
             if (!rawUrl) return;
 
             const [streamUrl, drmData] = rawUrl.split('|');
-            const [_, licenseInfo] = drmData.split('drmLicense=');
+            const licenseInfo = drmData.split('drmLicense=')[1];
             const [keyId, key] = licenseInfo.split(':');
 
             const video = document.querySelector('video');
             const player = new shaka.Player();
             await player.attach(video);
 
+            // Network Request Filter (Referer header add karne ke liye)
+            player.getNetworkingEngine().registerRequestFilter((type, request) => {
+                request.headers['Referer'] = 'https://www.google.com/'; 
+                request.headers['Origin'] = 'https://www.google.com/';
+            });
+
             player.configure({
                 drm: {
-                    clearKeys: { [keyId]: key },
-                    // Referrer header add karna taaki server block na kare
-                    advanced: {
-                        'com.widevine.alpha': {
-                            videoRobustness: 'SW_SECURE_CRYPTO',
-                            audioRobustness: 'SW_SECURE_CRYPTO'
-                        }
-                    }
-                },
-                streaming: { retryParameters: { timeout: 3000 } }
+                    clearKeys: { [keyId]: key }
+                }
             });
 
             try {
                 await player.load(streamUrl);
             } catch (e) {
-                console.error("Error loading:", e);
-                alert("Stream load nahi ho rahi. Check karein ki link active hai ya nahi.");
+                console.error("Critical Load Error:", e);
+                // Agar yahan error dikhe, toh samajh lijiye server ne access deny kar diya hai
             }
         });
     </script>
