@@ -8,31 +8,37 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: system-ui, sans-serif; }
+        html, body { background: #000; height: 100vh; width: 100vw; overflow: hidden; }
         .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
         video { width: 100%; height: 100%; background: #000; object-fit: contain; }
-        .shaka-spinner-container, .shaka-spinner, .shaka-spinner-svg { display: none !important; }
     </style>
 </head>
 <body>
+
     <div class="shaka-video-container" data-shaka-player>
         <video autoplay playsinline preload="metadata"></video>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
+            // URL se poora string uthana
             const params = new URLSearchParams(window.location.search);
-            const fullUrl = params.get('url'); // Yeh aapke link se URL lega
+            const rawUrl = params.get('url');
 
-            if (!fullUrl) {
-                console.error("URL parameter missing");
+            if (!rawUrl) {
+                console.error("No URL provided in parameters");
                 return;
             }
 
-            // URL aur DRM ko alag-alag karna (pipe symbol | ke dwara)
-            const [streamUrl, drmData] = fullUrl.split('|');
-            const drmLicense = drmData.split('=')[2]; // drmLicense=keyID:key format se nikalna
-            const [keyId, key] = drmLicense.split(':');
+            // String ko split karna (Stream URL aur DRM data ko alag karna)
+            // Format: url?|drmScheme=clearkey&drmLicense=keyID:key
+            const parts = rawUrl.split('|');
+            const streamUrl = parts[0];
+            const drmInfo = parts[1];
+
+            // License string se ID aur Key nikalna
+            const licensePart = drmInfo.split('drmLicense=')[1];
+            const [keyId, key] = licensePart.split(':');
 
             shaka.polyfill.installAll();
             const video = document.querySelector('video');
@@ -41,13 +47,17 @@
             new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
             player.configure({
-                drm: { clearKeys: { [keyId]: key } }
+                drm: {
+                    clearKeys: {
+                        [keyId]: key
+                    }
+                }
             });
 
             try {
                 await player.load(streamUrl);
             } catch (error) {
-                console.error('Error loading stream:', error);
+                console.error('Error:', error);
             }
         });
     </script>
