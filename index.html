@@ -1,14 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prime Player</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; }
-        .shaka-video-container { height: 100vh; width: 100vw; }
+        body, html { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
+        .shaka-video-container { width: 100%; height: 100%; }
         video { width: 100%; height: 100%; }
     </style>
 </head>
@@ -18,38 +16,28 @@
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', async () => {
+        async function initPlayer() {
             const params = new URLSearchParams(window.location.search);
-            const rawUrl = params.get('url');
-            if (!rawUrl) return;
+            const fullUrl = params.get('url');
+            if (!fullUrl) return;
 
-            const [streamUrl, drmData] = rawUrl.split('|');
-            const licenseInfo = drmData.split('drmLicense=')[1];
-            const [keyId, key] = licenseInfo.split(':');
+            const [streamUrl, drmData] = fullUrl.split('|');
+            const [_, license] = drmData.split('drmLicense=');
+            const [keyId, key] = license.split(':');
 
             const video = document.querySelector('video');
             const player = new shaka.Player();
             await player.attach(video);
-
-            // Network Request Filter (Referer header add karne ke liye)
-            player.getNetworkingEngine().registerRequestFilter((type, request) => {
-                request.headers['Referer'] = 'https://www.google.com/'; 
-                request.headers['Origin'] = 'https://www.google.com/';
-            });
-
-            player.configure({
-                drm: {
-                    clearKeys: { [keyId]: key }
-                }
-            });
+            
+            player.configure({ drm: { clearKeys: { [keyId]: key } } });
 
             try {
                 await player.load(streamUrl);
             } catch (e) {
-                console.error("Critical Load Error:", e);
-                // Agar yahan error dikhe, toh samajh lijiye server ne access deny kar diya hai
+                console.error("Load Error:", e);
             }
-        });
+        }
+        document.addEventListener('DOMContentLoaded', initPlayer);
     </script>
 </body>
 </html>
