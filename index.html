@@ -1,43 +1,73 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.6.0/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.6.0/controls.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Sharp">
     <style>
-        body, html { margin: 0; padding: 0; background: #000; height: 100%; overflow: hidden; }
-        .shaka-video-container { width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { background: #000; height: 100vh; width: 100vw; overflow: hidden; font-family: sans-serif; }
+        .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
+        video { width: 100%; height: 100%; background: #000; object-fit: contain; }
+        .manual-play-button { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 20px 30px; border-radius: 8px; cursor: pointer; border: 2px solid #ff0000; display: none; z-index: 2000; }
+        #channelTitle { position: absolute; left: 10px; top: 10px; color: #fff; font-size: 14px; z-index: 1500; background: rgba(0,0,0,0.6); padding: 4px 8px; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <div class="shaka-video-container" data-shaka-player>
-        <video autoplay playsinline></video>
-    </div>
 
-    <script>
-        async function initPlayer() {
-            const params = new URLSearchParams(window.location.search);
-            const fullUrl = params.get('url');
-            if (!fullUrl) return;
+<div class="shaka-video-container" data-shaka-player>
+    <video autoplay playsinline preload="auto"></video>
+    <div id="channelTitle"></div>
+    <div class="manual-play-button" id="manualPlayButton">▶ Click to Play</div>
+</div>
 
-            const [streamUrl, drmData] = fullUrl.split('|');
-            const [_, license] = drmData.split('drmLicense=');
-            const [keyId, key] = license.split(':');
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const streamUrl = params.get('url');
+    const drmLicense = params.get('drmLicense'); // Format: keyId:key
+    const channelName = params.get('name') || 'Live Stream';
 
-            const video = document.querySelector('video');
-            const player = new shaka.Player();
-            await player.attach(video);
-            
-            player.configure({ drm: { clearKeys: { [keyId]: key } } });
+    document.getElementById('channelTitle').textContent = channelName;
 
-            try {
-                await player.load(streamUrl);
-            } catch (e) {
-                console.error("Load Error:", e);
-            }
+    document.addEventListener('DOMContentLoaded', async () => {
+        shaka.polyfill.installAll();
+        const video = document.querySelector('video');
+        const player = new shaka.Player(video);
+        const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
+
+        // DRM Configuration
+        if (drmLicense && drmLicense.includes(':')) {
+            const [keyId, key] = drmLicense.split(':');
+            player.configure({
+                drm: {
+                    clearKeys: { [keyId]: key }
+                }
+            });
         }
-        document.addEventListener('DOMContentLoaded', initPlayer);
-    </script>
+
+        // Networking setup
+        player.getNetworkingEngine().registerRequestFilter((type, request) => {
+            request.headers['Referer'] = 'https://www.jiotv.com/';
+            request.headers['User-Agent'] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        });
+
+        const manualBtn = document.getElementById('manualPlayButton');
+
+        try {
+            await player.load(streamUrl);
+            await video.play().catch(() => { manualBtn.style.display = 'block'; });
+        } catch (error) {
+            console.error('Error loading:', error);
+            alert('Failed to load stream. Key might be expired.');
+        }
+
+        manualBtn.addEventListener('click', async () => {
+            manualBtn.style.display = 'none';
+            await video.play();
+        });
+    });
+</script>
 </body>
 </html>
