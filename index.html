@@ -3,61 +3,53 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Prime By Allrounder</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js" crossorigin="anonymous"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css" crossorigin="anonymous">
+    <title>Player</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { background: #000; height: 100vh; width: 100vw; overflow: hidden; }
-        .shaka-video-container { position: absolute; inset: 0; width: 100%; height: 100%; }
-        video { width: 100%; height: 100%; background: #000; object-fit: contain; }
+        body, html { margin: 0; padding: 0; background: #000; height: 100vh; overflow: hidden; }
+        .shaka-video-container { width: 100vw; height: 100vh; }
+        video { width: 100%; height: 100%; }
     </style>
 </head>
 <body>
-
     <div class="shaka-video-container" data-shaka-player>
-        <video autoplay playsinline preload="metadata"></video>
+        <video autoplay playsinline></video>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
-            // URL se poora string uthana
             const params = new URLSearchParams(window.location.search);
             const rawUrl = params.get('url');
+            if (!rawUrl) return;
 
-            if (!rawUrl) {
-                console.error("No URL provided in parameters");
-                return;
-            }
+            const [streamUrl, drmData] = rawUrl.split('|');
+            const [_, licenseInfo] = drmData.split('drmLicense=');
+            const [keyId, key] = licenseInfo.split(':');
 
-            // String ko split karna (Stream URL aur DRM data ko alag karna)
-            // Format: url?|drmScheme=clearkey&drmLicense=keyID:key
-            const parts = rawUrl.split('|');
-            const streamUrl = parts[0];
-            const drmInfo = parts[1];
-
-            // License string se ID aur Key nikalna
-            const licensePart = drmInfo.split('drmLicense=')[1];
-            const [keyId, key] = licensePart.split(':');
-
-            shaka.polyfill.installAll();
             const video = document.querySelector('video');
             const player = new shaka.Player();
             await player.attach(video);
-            new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
 
             player.configure({
                 drm: {
-                    clearKeys: {
-                        [keyId]: key
+                    clearKeys: { [keyId]: key },
+                    // Referrer header add karna taaki server block na kare
+                    advanced: {
+                        'com.widevine.alpha': {
+                            videoRobustness: 'SW_SECURE_CRYPTO',
+                            audioRobustness: 'SW_SECURE_CRYPTO'
+                        }
                     }
-                }
+                },
+                streaming: { retryParameters: { timeout: 3000 } }
             });
 
             try {
                 await player.load(streamUrl);
-            } catch (error) {
-                console.error('Error:', error);
+            } catch (e) {
+                console.error("Error loading:", e);
+                alert("Stream load nahi ho rahi. Check karein ki link active hai ya nahi.");
             }
         });
     </script>
